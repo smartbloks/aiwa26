@@ -74,7 +74,23 @@ export function GlobalHeader() {
 								)}
 							</motion.div>
 						) : (
-							<div></div>
+							<motion.div
+								whileTap={{ scale: 0.95 }}
+								transition={{
+									type: 'spring',
+									stiffness: 400,
+									damping: 17,
+								}}
+								className='flex items-center gap-3'
+							>
+								<AIWALogo
+										className="flex-shrink-0 transition-all duration-300"
+										style={{
+											height: '32px',
+											width: 'auto',
+										}}
+									/>
+							</motion.div>
 						)}
 
 						{/* Right section */}
