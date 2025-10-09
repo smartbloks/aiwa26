@@ -177,7 +177,7 @@ export default function Home() {
 							discoverReady ? "mt-48" : "mt-[20vh] sm:mt-[24vh] md:mt-[28vh]"
 						)}>
 						<h1 className="text-shadow-sm text-shadow-red-200 dark:text-shadow-red-900 text-accent font-medium leading-[1.1] tracking-tight text-5xl w-full mb-4 bg-clip-text bg-gradient-to-r from-text-primary to-text-primary/90">
-							What should we build today?
+							What do you want to build today?
 						</h1>
 
 						<form
