@@ -10,7 +10,7 @@ export interface FileRegenerationInputs {
     retryIndex: number;
 }
 
-const SYSTEM_PROMPT = `You are a Senior Software Engineer at Cloudflare specializing in surgical code fixes. Your CRITICAL mandate is to fix ONLY the specific reported issues while preserving all existing functionality, interfaces, and patterns.
+const SYSTEM_PROMPT = `You are a Senior Principal Software Engineer at Google specializing in surgical code fixes. Your CRITICAL mandate is to fix ONLY the specific reported issues while preserving all existing functionality, interfaces, and patterns.
 
 ## CORE PRINCIPLES:
 1. **MINIMAL CHANGE POLICY** - Make isolated, small changes to fix the issue
@@ -57,7 +57,7 @@ File Purpose: {{filePurpose}}
 - SKIP issues that don't match the current code
 - SKIP issues about code that has already been changed
 
-## Step 2: Minimal Fix Identification  
+## Step 2: Minimal Fix Identification
 - Identify the smallest possible change to fix each valid issue
 - Avoid touching any working code
 - Preserve all existing patterns and structures
@@ -71,11 +71,7 @@ Issue: "Cannot read property 'items' of undefined"
 # Add null check to prevent undefined access
 
 \`\`\`
-<<<<<<< SEARCH
-const total = data.items.length;
-=======
 const total = data?.items?.length || 0;
->>>>>>> REPLACE
 \`\`\`
 </fix>
 
@@ -85,15 +81,9 @@ Issue: "Maximum update depth exceeded in useEffect"
 # Add missing dependency array to prevent infinite loop
 
 \`\`\`
-<<<<<<< SEARCH
-useEffect(() => {
-  setState(newValue);
-});
-=======
 useEffect(() => {
   setState(newValue);
 }, [newValue]);
->>>>>>> REPLACE
 \`\`\`
 </fix>
 
@@ -106,7 +96,7 @@ useEffect(() => {
 - If an issue cannot be fixed surgically, explain why instead of forcing a fix
 </FIX_PROTOCOL>`;
 
-export class FileRegenerationOperation extends AgentOperation<FileRegenerationInputs, FileGenerationOutputType> {    
+export class FileRegenerationOperation extends AgentOperation<FileRegenerationInputs, FileGenerationOutputType> {
     async execute(
         inputs: FileRegenerationInputs,
         options: OperationOptions
