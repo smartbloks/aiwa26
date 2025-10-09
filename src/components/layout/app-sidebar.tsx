@@ -210,7 +210,7 @@ export function AppSidebar() {
 					{/* Build Button */}
 					<SidebarGroup>
 						<SidebarGroupContent>
-	
+
 							{location.pathname !== '/' && (
 								<div
 									className={cn(
@@ -228,7 +228,7 @@ export function AppSidebar() {
 															: 'justify-start bg-accent',
 													)}
 													onClick={() => {
-														// Collapse sidebar when starting a new build
+														// Collapse sidebar when starting a new app
 														if (!isCollapsed) {
 															setOpen(false);
 														}
@@ -238,7 +238,7 @@ export function AppSidebar() {
 													<Plus className="h-4 w-4 text-neutral-50" />
 													{!isCollapsed && (
 														<span className="font-medium text-neutral-50">
-															New build
+															New App
 														</span>
 													)}
 												</button>
@@ -409,7 +409,7 @@ export function AppSidebar() {
 										>
 											{!isCollapsed && 'Bookmarked'}
 											<Bookmark className="h-5 w-5 fill-yellow-500 text-yellow-500" />
-											
+
 										</SidebarGroupLabel>
 										<SidebarGroupContent>
 											<SidebarMenu>
