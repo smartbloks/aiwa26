@@ -37,12 +37,18 @@ export default function Home() {
 		accept: [...SUPPORTED_IMAGE_MIME_TYPES],
 	});
 
+	// const placeholderPhrases = useMemo(() => [
+	// 	"todo list app",
+	// 	"F1 fantasy game",
+	// 	"personal finance tracker"
+	// ], []);
 
 	const placeholderPhrases = useMemo(() => [
-		"todo list app",
-		"F1 fantasy game",
-		"personal finance tracker"
+		"SaaS landing page with waitlist",
+		"Linear-style project board",
+		"AI chat interface with streaming"
 	], []);
+
 	const [currentPlaceholderPhraseIndex, setCurrentPlaceholderPhraseIndex] = useState(0);
 	const [currentPlaceholderText, setCurrentPlaceholderText] = useState("");
 	const [isPlaceholderTyping, setIsPlaceholderTyping] = useState(true);
@@ -63,7 +69,7 @@ export default function Home() {
 	const handleCreateApp = (query: string, mode: AgentMode) => {
 		const encodedQuery = encodeURIComponent(query);
 		const encodedMode = encodeURIComponent(mode);
-		
+
 		// Encode images as JSON if present
 		const imageParam = images.length > 0 ? `&images=${encodeURIComponent(JSON.stringify(images))}` : '';
 		const intendedUrl = `/chat/new?query=${encodedQuery}&agentMode=${encodedMode}${imageParam}`;
@@ -160,7 +166,7 @@ export default function Home() {
 					></rect>
 				</svg>
 			</div>
-			
+
 			<LayoutGroup>
 				<div className="rounded-md w-full max-w-2xl overflow-hidden">
 					<motion.div
@@ -183,7 +189,7 @@ export default function Home() {
 							}}
 							className="flex z-10 flex-col w-full min-h-[150px] bg-bg-4 border border-accent/30 dark:border-accent/50 dark:bg-bg-2 rounded-[18px] shadow-textarea p-5 transition-all duration-200"
 						>
-							<div 
+							<div
 								className={clsx(
 									"flex-1 flex flex-col relative",
 									isDragging && "ring-2 ring-accent ring-offset-2 rounded-lg"
@@ -199,7 +205,7 @@ export default function Home() {
 									className="w-full resize-none ring-0 z-20 outline-0 placeholder:text-text-primary/60 text-text-primary"
 									name="query"
 									value={query}
-									placeholder={`Create a ${currentPlaceholderText}`}
+									placeholder={`${currentPlaceholderText}`}
 									ref={textareaRef}
 									onChange={(e) => {
 										setQuery(e.target.value);
