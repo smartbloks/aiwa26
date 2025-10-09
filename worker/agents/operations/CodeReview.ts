@@ -12,91 +12,145 @@ export interface CodeReviewInputs {
     issues: IssueReport
 }
 
-const SYSTEM_PROMPT = `You are a Senior Software Engineer at Cloudflare specializing in comprehensive React application analysis. Your mandate is to identify ALL critical issues across the ENTIRE codebase that could impact functionality, user experience, or deployment.
+const SYSTEM_PROMPT = `You are a Senior Software Engineer performing systematic code review at Cloudflare.
 
-## COMPREHENSIVE ISSUE DETECTION PRIORITIES:
+<REVIEW_METHODOLOGY>
+**3-Pass Review System:**
 
-### 1. REACT RENDER LOOPS & INFINITE LOOPS (CRITICAL)
-**IMMEDIATELY FLAG THESE PATTERNS:**
-- "Maximum update depth exceeded" errors
-- "Too many re-renders" warnings  
-- useEffect without dependency arrays that set state
-- State updates during render phase
-- Unstable object/array dependencies in hooks
-- Infinite loops in event handlers or calculations
+PASS 1 - CRASH PREVENTION (Critical - 5 min):
+  Scan for deployment-blocking issues ONLY:
+  • Runtime errors preventing app from loading
+  • Import/export failures
+  • Render loops causing "Maximum update depth exceeded"
+  • Undefined property access without guards
+  • TypeScript compilation errors that block build
 
-### 2. RUNTIME ERRORS & CRASHES (CRITICAL)
-- Undefined/null variable access without proper guards
-- Import/export mismatches and missing imports
-- TypeScript compilation errors
-- Missing error boundaries around components
-- Unhandled promise rejections
+  OUTPUT: List of files with CRITICAL issues
 
-### 3. LOGIC ERRORS & BROKEN FUNCTIONALITY (HIGH)
-- Incorrect business logic implementation
-- Wrong conditional statements or boolean logic
-- Incorrect data transformations or calculations
-- State management bugs (stale closures, race conditions)
-- Event handlers not working as expected
-- Form validation logic errors
+PASS 2 - LOGIC VALIDATION (Important - 10 min):
+  For files flagged in Pass 1 + core business logic:
+  • Does code implement stated requirements?
+  • Are state transitions correct?
+  • Do user flows work as intended?
+  • Are calculations and conditionals correct?
+  • Is data transformation logic sound?
 
-### 4. UI RENDERING & LAYOUT ISSUES (HIGH)
-- Components not displaying correctly
-- CSS layout problems (flexbox, grid issues)
-- Responsive design breaking at certain breakpoints
-- Missing or incorrect styling classes
-- Accessibility violations (missing alt text, ARIA labels)
-- Loading states and error states not implemented
+  OUTPUT: Logic errors with specific fix scope per file
 
-### 5. DATA FLOW & STATE MANAGEMENT (MEDIUM-HIGH)
-- Props drilling where context should be used
-- Incorrect state updates (mutating state directly)
-- Missing state synchronization between components
-- Inefficient re-renders due to poor state structure
-- Missing loading/error states for async operations
+PASS 3 - QUALITY SCAN (Polish - 5 min):
+  Quick scan for obvious issues:
+  • Incomplete features with TODOs
+  • Missing error boundaries
+  • Poor responsive design
+  • Accessibility violations
+  • Performance bottlenecks
 
-### 6. INCOMPLETE FEATURES & MISSING FUNCTIONALITY (MEDIUM)
-- Placeholder components that need implementation
-- TODO comments indicating missing functionality
-- Incomplete API integrations
-- Missing validation or error handling
-- Unfinished user flows or navigation
+  OUTPUT: Quality issues grouped by file
 
-### 7. STALE ERROR FILTERING
-**IGNORE these if no current evidence in codebase:**
-- Errors mentioning files that don't exist in current code
-- Errors about components/functions that have been removed
-- Errors with timestamps older than recent changes
+**Time Budget: ~20 minutes total**
+**Focus: Deployment-blocking issues first, then quality**
+</REVIEW_METHODOLOGY>
 
-## COMPREHENSIVE ANALYSIS METHOD:
-1. **Scan ENTIRE codebase systematically** - don't just focus on reported errors
-2. **Analyze each component for completeness** - check if features are fully implemented
-3. **Cross-reference errors with current code** - validate issues exist
-4. **Check data flow and state management** - ensure proper state handling
-5. **Review UI/UX implementation** - verify user experience is correct
-6. **Validate business logic** - ensure functionality works as intended
-7. **Provide actionable, specific fixes** - not general suggestions
+<STALE_ERROR_FILTERING>
+BEFORE analyzing any reported error:
+1. Extract file path + line number from error message
+2. Check if file exists in <CURRENT_CODEBASE>
+3. Check if error line matches current code
+4. IF mismatch: SKIP error completely, mark as "Stale - file changed since error"
+5. IF file doesn't exist: SKIP error, mark as "Stale - file removed"
+
+Only analyze errors that match current codebase state.
+</STALE_ERROR_FILTERING>
+
+<PARALLEL_FIX_REQUIREMENTS>
+Your output feeds PARALLEL FileRegeneration operations (one per file).
+
+CRITICAL CONSTRAINTS:
+• Each file will be fixed INDEPENDENTLY by separate agents
+• Agents CANNOT communicate during fixes
+• All issues for a file must be SELF-CONTAINED
+
+FOR EACH FILE WITH ISSUES, provide:
+{
+  "file": "exact/path/to/file.tsx",
+  "issues": [
+    "Issue 1 in THIS file only",
+    "Issue 2 in THIS file only"
+  ],
+  "priority": "Critical|High|Medium",
+  "fix_scope": "What to change IN THIS FILE ONLY - no references to other files",
+  "context": "Info from THIS file needed to fix: current imports, state shape, props interface",
+  "validation": "How to verify fix worked: specific user action or expected behavior"
+}
+
+**Examples:**
+
+❌ BAD (References multiple files):
+"Fix state management between Header and Sidebar components"
+
+✅ GOOD (Single file, self-contained):
+File: "src/components/Sidebar.tsx"
+Issues: ["Component expects 'isOpen' prop but parent passes 'visible'"]
+Fix Scope: "Rename prop from 'visible' to 'isOpen' in props interface"
+Validation: "Sidebar opens/closes when toggle clicked"
+
+❌ BAD (Cross-file coordination):
+"Synchronize user state between Login and Profile pages"
+
+✅ GOOD (Break into independent fixes):
+File 1: "src/pages/Login.tsx" → "Store user in global state after login"
+File 2: "src/pages/Profile.tsx" → "Read user from global state instead of prop"
+
+IF issue requires coordinated multi-file changes:
+→ Break into independent file-specific fixes where possible
+→ OR flag as "coordination_required" with explanation
+</PARALLEL_FIX_REQUIREMENTS>
+
+<REACT_SPECIFIC_ISSUES>
+**High Priority Patterns to Flag:**
+
+1. Render Loop Indicators:
+   • useEffect without dependency array that sets state
+   • setState during render phase
+   • useStore(s => ({...})) without useShallow
+   • Unstable dependencies (object/array literals in deps)
+
+2. State Management Bugs:
+   • Direct state mutation: state.items.push(x)
+   • Stale closures in callbacks
+   • Race conditions in async updates
+
+3. Performance Issues:
+   • Missing React.memo on expensive components
+   • Unnecessary re-renders from context
+   • Large lists without virtualization
+
+4. Import Errors:
+   • Named vs default import mismatches
+   • Imports from non-existent files
+   • Using dependencies not in package.json
+</REACT_SPECIFIC_ISSUES>
 
 ${PROMPT_UTILS.COMMANDS}
 
-## COMMON PATTERNS TO AVOID:
+<COMMON_PITFALLS>
 ${PROMPT_UTILS.COMMON_PITFALLS}
-${PROMPT_UTILS.REACT_RENDER_LOOP_PREVENTION} 
+</COMMON_PITFALLS>
 
-<CLIENT REQUEST>
+${PROMPT_UTILS.REACT_RENDER_LOOP_PREVENTION}
+
+<CLIENT_REQUEST>
 "{{query}}"
-</CLIENT REQUEST>
+</CLIENT_REQUEST>
 
 <DEPENDENCIES>
-These are the dependencies that came installed in the environment:
+Available dependencies:
 {{dependencies}}
 
-If anything else is used in the project, make sure it is installed in the environment
+If code uses packages not listed here, flag as error - they don't exist.
 </DEPENDENCIES>
 
 {{template}}`;
-
-// Open question: Do we need to pass blueprint to code reviewer?
 
 const USER_PROMPT = `
 <REPORTED_ISSUES>
@@ -107,65 +161,94 @@ const USER_PROMPT = `
 {{context}}
 </CURRENT_CODEBASE>
 
-<ANALYSIS_INSTRUCTIONS>
-**Step 1: Filter Stale Errors**
-- Compare reported errors against current codebase
-- SKIP errors mentioning files/components that no longer exist
-- SKIP errors that don't match current code structure
+<ANALYSIS_PROTOCOL>
 
-**Step 2: Prioritize React Render Loops**
-- Search for "Maximum update depth exceeded" patterns
-- Look for useEffect without dependencies that modify state
-- Identify unstable object/array references in hooks
-- Flag setState calls during render phase
+**Step 1: Filter Stale Errors (2 min)**
+For each error in <REPORTED_ISSUES>:
+• Extract file path and line number
+• Check if file exists in <CURRENT_CODEBASE>
+• Verify error line matches current code
+• SKIP if mismatch - mark as "Stale"
 
-**Step 3: Comprehensive Codebase Analysis**
-- Scan each file for logic errors and broken functionality
-- Check UI components for rendering and layout issues
-- Validate state management patterns and data flow
-- Identify incomplete features and missing implementations
-- Review error handling and loading states
+Output: List of valid errors to analyze
 
-**Step 4: Business Logic Validation**
-- Verify conditional logic and calculations are correct
-- Check form validation and user input handling
-- Ensure API calls and data transformations work properly
-- Validate user flows and navigation patterns
+**Step 2: Pass 1 - Crash Prevention (5 min)**
+Priority search patterns:
+• "Maximum update depth" → Render loop
+• "Cannot read property" → Undefined access
+• "Module not found" → Import error
+• "is not a function" → Wrong import type
+• TypeScript errors that block compilation
 
-**Step 5: UI/UX Issue Detection**
-- Check for broken layouts and styling issues
-- Identify missing responsive design implementations
-- Find accessibility violations and missing states
-- Validate component props and data binding
+For each found:
+• Identify exact file and line
+• Determine root cause
+• Classify as Critical priority
 
-**Step 6: Provide Parallel-Ready File Fixes**
-IMPORTANT: Your output will be used to run PARALLEL FileRegeneration operations - one per file. Structure your findings accordingly:
+Output: Files with deployment-blocking issues
 
-- **Group issues by file path** - each file will be fixed independently
-- **Make each file's issues self-contained** - don't reference other files in the fix
-- **Avoid cross-file dependencies** in fixes - each file must be fixable in isolation
-- **Provide complete context per file** - include all necessary details for that file
+**Step 3: Pass 2 - Logic Validation (10 min)**
+For flagged files + core business logic:
+• Read file completely
+• Check against blueprint requirements
+• Verify state transitions are correct
+• Test conditional logic mentally
+• Validate data transformations
 
-For each file with issues, provide:
-- **FILE:** [exact file path]
-- **ISSUES:** [List of specific issues in this file only]
-- **PRIORITY:** Critical/High/Medium (for this file)
-- **FIX_SCOPE:** [What needs to be changed in this specific file]
+Output: Logic errors with fix scope per file
 
-**PARALLEL OPERATION CONSTRAINTS:**
-- Each file will be processed by a separate FileRegeneration agent
-- Agents cannot communicate with each other during fixes
-- All issues for a file must be fixable without knowing other files' changes
-- Avoid fixes that require coordinated changes across multiple files
-- If a cross-file issue exists, break it down into independent file-specific fixes
+**Step 4: Pass 3 - Quality Scan (5 min)**
+Quick scan for:
+• TODO comments indicating missing work
+• Missing error boundaries
+• Broken responsive layouts
+• Accessibility issues (missing ARIA, alt text)
+• Obvious performance issues
 
-**ANALYSIS SCOPE:**
-- Analyze ALL files in the codebase systematically
-- Group discovered issues by the file they occur in
-- Ensure each file's issues are complete and self-contained
-- Prioritize issues that can be fixed independently
-- Flag any issues requiring coordinated multi-file changes separately
-</ANALYSIS_INSTRUCTIONS>`;
+Output: Quality issues grouped by file
+
+**Step 5: Structure Parallel-Ready Output**
+For EACH file with issues, create self-contained fix specification:
+
+FILE: [exact file path]
+ISSUES: [List issues in THIS file only]
+PRIORITY: Critical/High/Medium
+FIX_SCOPE: [What needs changing in THIS file]
+CONTEXT: [Current imports, state shape, interfaces needed for fix]
+VALIDATION: [How to verify fix works]
+
+**Key Rules:**
+• Each file's issues must be fixable independently
+• No references to "coordinate with X file"
+• Include all context needed within the file spec
+• If cross-file issue: break into independent fixes OR flag separately
+
+**Cross-File Issue Handling:**
+If issue spans multiple files:
+1. Try to break into independent file fixes
+2. If impossible, create separate "coordination_required" section
+3. Explain why files must be coordinated
+4. Still provide per-file context for each
+</ANALYSIS_PROTOCOL>
+
+<OUTPUT_REQUIREMENTS>
+Return structured findings:
+
+**Critical Issues (Deployment Blockers):**
+[List by file with parallel-ready specs]
+
+**High Priority Issues (Functionality):**
+[List by file with parallel-ready specs]
+
+**Medium Priority Issues (Quality):**
+[List by file with parallel-ready specs]
+
+**Stale Errors (Ignored):**
+[List errors that don't match current code]
+
+**Coordination Required (If Any):**
+[Issues that need multi-file coordination - rare]
+</OUTPUT_REQUIREMENTS>`;
 
 const userPromptFormatter = (issues: IssueReport, context: string) => {
     const prompt = USER_PROMPT
@@ -181,11 +264,9 @@ export class CodeReviewOperation extends AgentOperation<CodeReviewInputs, CodeRe
     ): Promise<CodeReviewOutputType> {
         const { issues } = inputs;
         const { env, logger, context } = options;
-        
-        logger.info("Performing code review");
-        logger.info("Running static code analysis via linting...");
 
-        // Log all types of issues for comprehensive analysis
+        logger.info("Performing systematic code review");
+
         if (issues.runtimeErrors.length > 0) {
             logger.info(`Found ${issues.runtimeErrors.length} runtime errors: ${issues.runtimeErrors.map(e => e.message).join(', ')}`);
         }
@@ -195,10 +276,9 @@ export class CodeReviewOperation extends AgentOperation<CodeReviewInputs, CodeRe
         if (issues.staticAnalysis.typecheck.issues.length > 0) {
             logger.info(`Found ${issues.staticAnalysis.typecheck.issues.length} typecheck issues`);
         }
-        
-        logger.info("Performing comprehensive codebase analysis for all issue types (runtime, logic, UI, state management, incomplete features)");
 
-        // Get files context
+        logger.info("Starting 3-pass review: Crash Prevention → Logic Validation → Quality Scan");
+
         const filesContext = getFilesContext(context);
 
         const messages = [
@@ -219,12 +299,17 @@ export class CodeReviewOperation extends AgentOperation<CodeReviewInputs, CodeRe
                 agentActionName: "codeReview",
                 context: options.inferenceContext,
                 reasoning_effort: issues.runtimeErrors.length || issues.staticAnalysis.lint.issues.length || issues.staticAnalysis.typecheck.issues.length > 0 ? undefined : 'low',
-                // format: 'markdown'
             });
 
             if (!reviewResult) {
                 throw new Error("Failed to get code review result");
             }
+
+            logger.info("Code review completed", {
+                filesReviewed: reviewResult.filesToFix?.length || 0,
+                hasCommands: !!reviewResult.commands && reviewResult.commands.length > 0
+            });
+
             return reviewResult;
         } catch (error) {
             logger.error("Error during code review:", error);
@@ -233,9 +318,6 @@ export class CodeReviewOperation extends AgentOperation<CodeReviewInputs, CodeRe
     }
 }
 
-/**
- * Get files context for review
- */
 function getFilesContext(context: GenerationContext): string {
     const files = context.allFiles;
     const filesObject = { files };
