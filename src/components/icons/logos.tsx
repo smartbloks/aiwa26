@@ -1,3 +1,5 @@
+import React from "react";
+
 export function CloudflareLogo(props: React.SVGProps<SVGSVGElement> & { color1?: string, color2?: string}) {
 	return (
 		<svg
@@ -18,6 +20,17 @@ export function CloudflareLogo(props: React.SVGProps<SVGSVGElement> & { color1?:
 			/>
 		</svg>
 	);
+}
+
+export function BrandLogo(props: React.ImgHTMLAttributes<HTMLImageElement>) {
+  return (
+    <>
+      <img
+        src={"/aiwa5.png"}
+        alt={"Aiwa Brand Logo"}
+      />
+    </>
+  );
 }
 
 export function TypeScriptIcon(props: React.SVGProps<SVGSVGElement>) {
