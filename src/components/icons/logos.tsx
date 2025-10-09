@@ -59,31 +59,62 @@ export const AIAvatar = (props: React.SVGProps<SVGSVGElement>) => (
 		xmlns="http://www.w3.org/2000/svg"
 		width={24}
 		height={24}
+		viewBox="0 0 24 24"
 		fill="none"
 		{...props}
 	>
-		<rect
-			width={23.5}
-			height={23.5}
-			x={0.25}
-			y={0.25}
-			fill="black"
-			rx={11.75}
-		/>
-		<rect
-			width={23.5}
-			height={23.5}
-			x={0.25}
-			y={0.25}
-			stroke="black"
-			strokeWidth={0.5}
-			rx={11.75}
-		/>
+		{/* Circular background with AIWA brand gradient */}
+		<circle cx="12" cy="12" r="11.75" fill="url(#aiwaGradient)" />
+		<circle cx="12" cy="12" r="11.75" stroke="#E67316" strokeWidth="0.5" />
+
+		{/* Gradient definition */}
+		<defs>
+			<linearGradient id="aiwaGradient" x1="12" y1="0.25" x2="12" y2="23.75" gradientUnits="userSpaceOnUse">
+				<stop offset="0%" stopColor="#F6821F" />
+				<stop offset="100%" stopColor="#E67316" />
+			</linearGradient>
+		</defs>
+
+		{/* Stylized "A" letter */}
 		<path
+			d="M12 6L7 18H9.5L10.5 15.5H13.5L14.5 18H17L12 6ZM11 13.5L12 10.5L13 13.5H11Z"
 			fill="white"
 			fillRule="evenodd"
-			d="m.504 11.814 9.734-.123c1.765-.081 3.675-1.514 4.344-3.26l.849-2.217c.298-.46.918-.1.738.343l-.58 2.002c-.249.86-.156 1.655.262 2.24.384.539 1.025.855 1.803.892l3.143.188a.286.286 0 0 1 .257.39.394.394 0 0 1-.342.26l-3.265.19c-1.773.081-3.684 1.513-4.353 3.259l-.236.616c-.137.492-1.006.596-.98-.02l.21-.724c.248-.86.156-1.655-.262-2.24-.385-.538-1.026-.855-1.804-.891l-9.47-.121c-.025-.26-.041-.52-.048-.784Z"
 			clipRule="evenodd"
 		/>
 	</svg>
 );
+
+// export const AIAvatar = (props: React.SVGProps<SVGSVGElement>) => (
+// 	<svg
+// 		xmlns="http://www.w3.org/2000/svg"
+// 		width={24}
+// 		height={24}
+// 		fill="none"
+// 		{...props}
+// 	>
+// 		<rect
+// 			width={23.5}
+// 			height={23.5}
+// 			x={0.25}
+// 			y={0.25}
+// 			fill="black"
+// 			rx={11.75}
+// 		/>
+// 		<rect
+// 			width={23.5}
+// 			height={23.5}
+// 			x={0.25}
+// 			y={0.25}
+// 			stroke="black"
+// 			strokeWidth={0.5}
+// 			rx={11.75}
+// 		/>
+// 		<path
+// 			fill="white"
+// 			fillRule="evenodd"
+// 			d="m.504 11.814 9.734-.123c1.765-.081 3.675-1.514 4.344-3.26l.849-2.217c.298-.46.918-.1.738.343l-.58 2.002c-.249.86-.156 1.655.262 2.24.384.539 1.025.855 1.803.892l3.143.188a.286.286 0 0 1 .257.39.394.394 0 0 1-.342.26l-3.265.19c-1.773.081-3.684 1.513-4.353 3.259l-.236.616c-.137.492-1.006.596-.98-.02l.21-.724c.248-.86.156-1.655-.262-2.24-.385-.538-1.026-.855-1.804-.891l-9.47-.121c-.025-.26-.041-.52-.048-.784Z"
+// 			clipRule="evenodd"
+// 		/>
+// 	</svg>
+// );

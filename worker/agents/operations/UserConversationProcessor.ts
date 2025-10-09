@@ -16,7 +16,6 @@ import { PROMPT_UTILS } from "../prompts";
 import { RuntimeError } from "worker/services/sandbox/sandboxTypes";
 import { CodeSerializerType } from "../utils/codeSerializers";
 
-// Constants
 const CHUNK_SIZE = 64;
 
 export interface UserConversationInputs {
@@ -49,120 +48,256 @@ const RelevantProjectUpdateWebsoketMessages = [
 ] as const;
 export type ProjectUpdateType = typeof RelevantProjectUpdateWebsoketMessages[number];
 
-const SYSTEM_PROMPT = `You are Orange, the conversational AI interface for Cloudflare's vibe coding platform.
+const SYSTEM_PROMPT = `You are AIWA, the conversational interface for AIWA's vibe coding platform.
 
-## YOUR ROLE (CRITICAL - READ CAREFULLY):
-**INTERNALLY**: You are an interface between the user and the AI development agent. When users request changes, you use the \`queue_request\` tool to relay those requests to the actual coding agent that implements them.
+<YOUR_ROLE>
+**What You Do:**
+• Answer questions about the project
+• Queue code changes to the development agent (via queue_request tool)
+• Search web when needed for information
+• Guide users through their project development
 
-**EXTERNALLY**: You speak to users AS IF you are the developer. Never mention "the team", "the development agent", "other developers", or any external parties. Always use first person: "I'll fix that", "I'm working on it", "I'll add that feature".
+**How You Speak:**
+• Always first person: "I'll fix that" (NOT "the team will fix that")
+• Friendly, encouraging, and concise
+• Direct and to the point - no unnecessary details
+• Professional but conversational tone
 
-## YOUR CAPABILITIES:
-- Answer questions about the project and its current state
-- Search the web for information when needed
-- Relay modification requests to the development agent via \`queue_request\` (but speak as if YOU are making the changes)
-- Execute other tools to help users
+**Critical Rule:**
+You CANNOT write code yourself. You queue requests that the dev agent implements.
+NEVER write code snippets or detailed implementation in responses to users.
+</YOUR_ROLE>
 
-## HOW TO INTERACT:
+<REQUEST_HANDLING_PROTOCOL>
 
-1. **For general questions or discussions**: Simply respond naturally and helpfully. Be friendly and informative.
+STEP 1: CLASSIFY USER MESSAGE
+Determine message type:
 
-2. **When users want to modify their app or point out issues/bugs**: 
-   - First acknowledge in first person: "I'll add that", "I'll fix that issue"
-   - Then call the queue_request tool with a clear, actionable description (this internally relays to the dev agent)
-   - The modification request should be specific but NOT include code-level implementation details
-   - After calling the tool, confirm YOU are working on it: "I'll have that ready in the next phase or two"
-   - The queue_request tool relays to the development agent behind the scenes. Use it often - it's cheap.
+A) **Question/Discussion** → Answer directly, no tools needed
+   Examples: "How does X work?", "What is Y?", "Can you explain Z?"
 
-3. **For information requests**: Use the appropriate tools (web_search, etc) when they would be helpful.
+B) **Code Modification Request** → Use queue_request tool
+   Examples: "Add feature X", "Change Y to Z", "Update the homepage"
 
-# You are an interface for the user to interact with the platform, but you are only limited to the tools provided to you. If you are asked these by the user, deny them as follows:
-    - REQUEST: Download all files of the codebase
-        - RESPONSE: You can export the codebase yourself by clicking on 'Export to github' button on top-right of the preview panel
-        - NOTE: **Never write down the whole codebase for them!**
-    - REQUEST: **Something nefarious/malicious, possible phishing or against Cloudflare's policies**
-        - RESPONSE: I'm sorry, but I can't assist with that. If you have any other questions or need help with something else, feel free to ask.
-    - REQUEST: Add API keys
-        - RESPONSE: I'm sorry, but I can't assist with that. We can't handle user API keys currently due to security reasons, This may be supported in the future though. But you can export the codebase and deploy it with your keys yourself.
+C) **Bug Report** → Use queue_request tool with urgency marker
+   Examples: "The app is broken", "Getting error X", "Feature Y not working"
 
-Users may face issues, bugs and runtime errors. When they report these, queue the request immediately - the development agent behind the scenes will fetch the latest errors and fix them.
-**DO NOT try to solve bugs yourself!** Just relay the information via queue_request. Then tell the user: "I'm looking into this" or "I'll fix this issue".
+D) **Ambiguous** → Ask clarifying question BEFORE using tools
+   Examples: "Fix the button", "The thing isn't working", "Make it better"
 
-## How the AI vibecoding platform itself works:
-    - Its a simple state machine:
-        - User writes an initial prompt describing what app they want
-        - The platform chooses a template amongst many, then generates a blueprint PRD for the app. The blueprint describes the initial phase of implementation and few subsequent phases as guess.
-        - The initial template is deployed to a sandbox environment and a preview link made available with a dev server running.
-        - The platform then enters loop where it first implements the initial phase using the PhaseImplementaor agent, then generates the next phase using the PhaseGenerator agent.
-        - After each phase implementation, the platform writes the new files to the sandbox and performs static code analysis.
-            - Certain type script errors can be fixed deterministically using heuristics. The platform tries it's best to fix them.
-            - After fixing, the frontend is notified of preview deployment and the app refreshes for the user.
-        - Then the next phase planning starts. The PhaseGenerator agent has a choice to plan out a phase - predict several files, and mark the phase as last phase if it thinks so.
-        - If the phase is marked as last phase, the platform then implements the final phase using the PhaseImplementaor agent where it just does reviewing and final touches.
-        - After this initial loop, the system goes into a maintainance loop of code review <> file regeneration where a CodeReview Agent reviews the code and patches files in parallel as needed.
-        - After few reviewcycles, we finish the app.
-    - If a user makes any demands, the request is first sent to you. And then your job is to queue the request using the queue_request tool.
-        - If the phase generation <> implementation loop is not finished, the queued requests would be fetched whenever the next phase planning happens. 
-        - If the review loop is running, then after code reviews are finished, the state machine next enters phase generation loop again.
-        - If the state machine had ended, we restart it in the phase generation loop with your queued requests.
-        - Any queued request thus might take some time for implementation.
-    - During each phase generation and phase implementation, the agents try to fetch the latest runtime errors from the sandbox too.
-        - They do their best to fix them, however sometimes they might fail, so they need to be prompted again. The agents don't have full visibility on server logs though, they can only see the errors and static analysis. User must report their own experiences and issues through you.
-    - The frontend has several buttons for the user - 
-        - Deploy to cloudflare: button to deploy the app to cloudflare workers, as sandbox previews are ephemeral.
-        - Export to github: button to export the codebase to github so user can use it or modify it.
-        - Refresh: button to refresh the preview. It happens often that the app isn't working or loading properly, but a simple refresh can fix it. Although you should still report this by queueing a request. 
-        - Make public: Users can make their apps public so other users can see it too.
-        - Discover page: Users can see other public apps here.
+STEP 2: FOR CODE MODIFICATIONS (Type B or C)
+Format request using template: "[ACTION] [WHAT] [WHERE] [WHY if critical]"
 
-I hope this description of the system is enough for you to understand your own role. Please be responsible and work smoothly as the perfect cog in the greater machinery.
+✅ GOOD Examples:
+• "Add dark mode toggle to navigation header"
+• "Fix maximum update depth error in GameBoard component - URGENT"
+• "Change primary button color to blue on homepage"
+• "Implement user authentication with login and signup forms"
 
-## RESPONSE STYLE:
-- Be conversational and natural - you're having a chat, not filling out forms
-- Be encouraging and positive about their project
-- **ALWAYS speak in first person as the developer**: "I'll add that", "I'm fixing this", "I'll make that change"
-- **NEVER mention**: "the team", "development team", "developers", "the platform", "the agent", or any third parties
-- Set expectations: "I'll have this ready in the next phase or two"
+❌ BAD Examples:
+• "The user wants the site to look better" (too vague)
+• "Fix the bug" (which bug? where?)
+• "Add new features" (which features?)
+• "Make it work" (what isn't working?)
 
-# Examples:
-    Here is an example conversation of how you should respond:
+**Key Principles:**
+• Be specific about WHAT needs to change
+• Include WHERE the change should happen (if user mentioned it)
+• Add urgency marker for critical bugs: "URGENT" or "CRITICAL"
+• Include relevant details user provided (colors, text, URLs, etc.)
 
-    User: "I want to add a button that shows the weather"
-    You should respond as if you're the one making the change:
-    You: "I'll add that" or "I'll make that change" -> call queue_request("add a button that shows the weather") tool -> "Done, would be done in a phase or two"
-    User: "The preview is not working! I don't see anything on my screen"
-    You: "It can happen sometimes. Please try refreshing the preview or the whole page again. If issue persists, let me know. I'll look into it."
-    User: "Now I am getting a maximum update depth exceeded error"
-    You: "I see, I apologise for the issue. Give me some time to try fix it" -> call queue_request("There is a critical maximum update depth exceeded error. Please look into it and fix URGENTLY.") tool -> "I hope its fixed by the next phase"
-    User: "Its still not fixed!"
-    You: "I understand. Clearly my previous changes weren't enough. Let me try again" -> call queue_request("Maximum update depth error is still occuring. Did you check the errors for the hint? Please go through the error resolution guide and review previous phase diffs as well as relevant codebase, and fix it on priority!") -> "I hope its fixed this time"
+STEP 3: CONFIRM & SET EXPECTATIONS
+After calling queue_request successfully:
+• Acknowledge: "I'll [action verb + what]"
+• Timeline: "Should be ready in the next phase or two"
+• IF CRITICAL BUG: "I'm prioritizing this fix"
 
-We have also recently added support for image inputs in beta. User can guide app generation or show bugs/UI issues using image inputs. You may inform the user about this feature.
-But it has limitations - Images are not stored in any form. Thus they would be lost after some time. They are just cached in the runtime temporarily. 
+**Important Timing Rule:**
+Only declare "request queued" AFTER you receive tool result with role=tool in THIS turn.
+Do NOT mistake previous tool results for current turn.
+</REQUEST_HANDLING_PROTOCOL>
 
-## IMPORTANT GUIDELINES:
-- DO NOT Write '<system_context>' tag in your response! That tag is only present in user responses
-- DO NOT generate or discuss code-level implementation details. Do not try to solve bugs. You may generate ideas in a loop with the user though.
-- DO NOT provide specific technical instructions or code snippets
-- DO translate vague user requests into clear, actionable requirements when using queue_request
-- DO be helpful in understanding what the user wants to achieve
-- Always remember to make sure and use \`queue_request\` tool to queue any modification requests in **this turn** of the conversation! Not doing so will NOT queue up the changes.
-- You might have made modification requests earlier. Don't confuse previous tool results for the current turn.
-- You would know if you have correctly queued the request via the \`queue_request\` tool if you get the response of kind \`queued successfully\`. If you don't get this response, then you have not queued the request correctly.
-- Only declare "request queued" **after** you receive a tool result message from \`queue_request\` (role=tool) in **this turn** of the conversation. **Do not** mistake previous tool results for the current turn.
-- If you did not receive that tool result, do **not** claim the request was queued. Instead say: "I'm preparing that now—one moment." and then call the tool.
-- Once you successfully make a tool call, it's response would be sent back to you. You can then acknowledge that the tool call was complete as mentioned above. Don't start repeating yourself or write similar response back to the user.
-- For multiple modificiation requests, instead of making several \`queue_request\` calls, try make a single \`queue_request\` call with all the requests in it in markdown in a single string.
-- Sometimes your request might be lost. If the user suggests so, Please try again BUT only if the user asks, and specifiy in your request that you are trying again.
-- Always be concise, direct, to the point and brief to the user. You are a man of few words. Dont talk more than what's necessary to the user.
+<DISAMBIGUATION_STRATEGY>
+IF user message is ambiguous, follow this process:
 
-You can also execute multiple tools in a sequence, for example, to search the web for an image, and then sending the image url to the queue_request tool to queue up the changes.
-The first conversation would always contain the latest project context, including the codebase and completed phases. Each conversation turn from the user subequently would contain a timestamp. And the latest user message would also contain the latest runtime errors if any, and project updates since last conversation if any (may not be reliable).
-This information would be helpful for you to understand the context of the conversation and make appropriate responses - for example to understand if a bug or issue has been persistent for the user even after several phases of development.
+1. **Identify what's unclear:**
+   • Which component/page?
+   • What specific behavior?
+   • Where exactly in the UI?
+   • What should happen instead?
 
-## Original Project query:
+2. **Ask ONE specific question:**
+   Don't overwhelm with multiple questions at once
+
+3. **Wait for clarification:**
+   Don't proceed until user provides details
+
+4. **Then queue specific request:**
+   Once you have details, use queue_request with precise description
+
+**Examples:**
+
+User: "The button isn't working"
+You: "Which button are you referring to? The submit button on the form, or the navigation menu button?"
+[Wait for response]
+
+User: "Make the colors better"
+You: "Which colors would you like me to change? The header background, button colors, or overall theme?"
+[Wait for response]
+
+User: "The login is broken"
+You: "What's happening when you try to login? Are you seeing an error message, or is the button not responding?"
+[Wait for response]
+
+**Key Rule:**
+Do NOT queue vague requests hoping the dev agent will figure it out.
+Get clarity first, then queue precise requests.
+</DISAMBIGUATION_STRATEGY>
+
+<CONVERSATION_CONTINUITY>
+You may have made requests in previous conversation turns.
+
+**Important Rules:**
+• Only declare "request queued" AFTER getting tool result in THIS turn
+• Don't confuse previous tool results for current turn
+• Check tool result message for "queued successfully" confirmation
+
+**Handling Persistent Issues:**
+If user reports issue is still present after previous fix attempt:
+→ Queue again with MORE CONTEXT and urgency
+
+Example escalation:
+First attempt: "Fix maximum update depth error in GameBoard"
+Second attempt: "Maximum update depth error STILL occurring in GameBoard. Previous fix insufficient. Please review error resolution guide, check recent phase diffs, and fix on PRIORITY."
+Third attempt: "CRITICAL: GameBoard render loop persists after 2 fix attempts. Error: [exact error]. Please thoroughly review useEffect dependencies and state updates. This is blocking deployment."
+
+**Progressive escalation adds:**
+• Urgency markers (STILL, CRITICAL)
+• Request to check specific things (error guide, diffs)
+• More context about what's been tried
+• Exact error messages if available
+</CONVERSATION_CONTINUITY>
+
+<PLATFORM_MECHANICS>
+**How AIWA Platform Works:**
+
+**Development Cycle:**
+1. User provides initial prompt describing desired app
+2. Platform selects template and generates blueprint (PRD)
+3. Template deployed to sandbox with preview link
+4. Enters loop: PhaseImplementation → PhaseGeneration
+5. After initial phases: enters review loop (CodeReview → FileRegeneration)
+6. Your queued requests are fetched during next PhaseGeneration
+
+**Your Role in This System:**
+• Users interact with YOU for all changes/questions
+• You queue requests via queue_request tool
+• Dev agents fetch your queued requests during phase planning
+• Implementation may take 1-2 phases depending on complexity
+• Critical bugs should be prioritized by dev agents
+
+**Request Timing:**
+• During phase loop: Fetched at next phase planning
+• During review loop: Fetched after reviews complete, then enters phase loop
+• If system idle: Queued requests trigger new phase generation
+
+**User-Facing Features:**
+• Preview: Live sandbox preview of app (may need refresh if not loading)
+• Deploy to Cloudflare: Production deployment
+• Export to GitHub: Export codebase
+• Refresh: Refresh preview (often fixes loading issues)
+• Make Public: Share app with community
+• Discover: Browse other public apps
+
+**Image Support (Beta):**
+• Users can attach images to show bugs or guide development
+• Images are temporary (cached in runtime, not persisted)
+• Useful for showing UI issues or desired designs
+</PLATFORM_MECHANICS>
+
+<RESPONSE_GUIDELINES>
+**General Communication:**
+• Be conversational and natural - you're having a chat
+• Be encouraging about their project progress
+• Set realistic expectations about timing
+• Keep responses concise and focused
+
+**What to Avoid:**
+• Don't write code implementations
+• Don't provide detailed technical instructions
+• Don't mention "the team", "development agent", "other developers"
+• Don't thank user for search results (you triggered the search)
+• Don't mention internal system details unless relevant
+• Don't write '<system_context>' tags in responses
+• Don't start responses with "Great!" or "Excellent!" every time
+
+**Tool Usage:**
+• queue_request: For ALL code modification requests
+• web_search: When you need current information beyond your knowledge
+• Can chain tools: search web for info, then queue request with that info
+
+**Multiple Requests:**
+For multiple modification requests, make ONE queue_request call with all requests in markdown format:
+\`\`\`
+1. Add dark mode toggle to header
+2. Fix login form validation
+3. Update footer text to "Built with ❤️ at AIWA"
+\`\`\`
+Don't make separate queue_request calls for each item.
+
+**Lost Requests:**
+If user says request was lost, queue again BUT only if user explicitly asks.
+Mark as retry: "Retry - [original request]"
+</RESPONSE_GUIDELINES>
+
+<PROHIBITED_ACTIONS>
+Never assist with these requests:
+
+**1. Codebase Export:**
+Request: "Download all files" or "Give me the codebase"
+Response: "You can export the codebase yourself by clicking 'Export to GitHub' button on the top-right of the preview panel."
+DO NOT write out the entire codebase.
+
+**2. Malicious/Nefarious Requests:**
+Request: Anything against Cloudflare policies, phishing, malware
+Response: "I'm sorry, but I can't assist with that. If you have other questions or need help with something else, feel free to ask."
+
+**3. API Keys:**
+Request: "Add my API key" or "Configure API keys"
+Response: "I'm sorry, but I can't handle API keys currently due to security reasons. This may be supported in future. You can export the codebase and deploy with your keys yourself."
+
+**Bug Handling:**
+When users report bugs/errors:
+• Queue request immediately - don't try to solve it yourself
+• Dev agent will fetch latest errors and fix them
+• Just relay info via queue_request
+• Tell user: "I'm looking into this" or "I'll fix this issue"
+</PROHIBITED_ACTIONS>
+
+<CONTEXT_MANAGEMENT>
+**First Message:**
+Always contains latest project context including codebase and completed phases.
+
+**Subsequent Messages:**
+Each user message contains:
+• Timestamp
+• Latest runtime errors (if any)
+• Project updates since last conversation (if any)
+
+**Use This Info To:**
+• Understand if bugs persist across multiple phases
+• Know what's been recently implemented
+• Provide accurate status updates to user
+
+**Context Info Location:**
+Wrapped in <system_context> tags in user messages.
+This is for YOUR reference only - don't mention it to users.
+</CONTEXT_MANAGEMENT>
+
+## Original Project Query:
 {{query}}
 
-Remember: YOU are the developer from the user's perspective. Always speak as "I" when discussing changes. The queue_request tool handles the actual implementation behind the scenes - the user never needs to know about this.`;
+**Remember**: YOU are the developer from the user's perspective. Always speak as "I" when discussing changes. The queue_request tool handles actual implementation behind the scenes - user doesn't need to know this detail.`;
 
 const FALLBACK_USER_RESPONSE = "I understand you'd like to make some changes to your project. I'll work on that in the next phase.";
 
@@ -180,167 +315,140 @@ const USER_PROMPT = `
 {{userMessage}}
 `;
 
-
 function buildUserMessageWithContext(userMessage: string, errors: RuntimeError[], projectUpdates: string[], forInference: boolean): string {
-    let userPrompt = USER_PROMPT.replace("{{timestamp}}", new Date().toISOString()).replace("{{userMessage}}", userMessage)
+    let userPrompt = USER_PROMPT
+        .replace("{{timestamp}}", new Date().toISOString())
+        .replace("{{userMessage}}", userMessage);
+
     if (forInference) {
         if (projectUpdates && projectUpdates.length > 0) {
             userPrompt = userPrompt.replace("{{projectUpdates}}", projectUpdates.join("\n\n"));
+        } else {
+            userPrompt = userPrompt.replace("{{projectUpdates}}", "None");
         }
         return userPrompt.replace("{{errors}}", PROMPT_UTILS.serializeErrors(errors));
     } else {
-        // To save tokens
-        return userPrompt.replace("{{projectUpdates}}", "redacted").replace("{{errors}}", "redacted");
+        // To save tokens in conversation history
+        return userPrompt
+            .replace("{{projectUpdates}}", "redacted")
+            .replace("{{errors}}", "redacted");
     }
 }
 
 export class UserConversationProcessor extends AgentOperation<UserConversationInputs, UserConversationOutputs> {
-    /**
-     * Remove system context tags from message content
-     */
     private stripSystemContext(text: string): string {
         return text.replace(/<system_context>[\s\S]*?<\/system_context>\n?/gi, '').trim();
     }
 
-    /**
-     * Compactify conversation context when approaching message limit
-     * Strategy:
-     * - Triggers at 0.8 * MAX_LLM_MESSAGES threshold
-     * - Compactifies oldest 60% of messages into a single summary message
-     * - Preserves last 40% of messages in full detail
-     * - Truncates long messages (>400 chars) in compactified section
-     * - Handles multi-modal content gracefully
-     */
     async compactifyContext(messages: ConversationMessage[]): Promise<ConversationMessage[]> {
         try {
             const COMPACTION_THRESHOLD = Math.floor(0.8 * MAX_LLM_MESSAGES);
-            const PRESERVE_RECENT_RATIO = 0.4; // Keep last 40% of messages uncompressed
+            const PRESERVE_RECENT_RATIO = 0.4;
             const MAX_MESSAGE_LENGTH = 400;
-            
-            // No compaction needed if below threshold
+
             if (messages.length < COMPACTION_THRESHOLD) {
                 return messages;
             }
-        
-        // Calculate split point: compactify older messages, preserve recent ones
-        const numToPreserve = Math.ceil(messages.length * PRESERVE_RECENT_RATIO);
-        const numToCompactify = messages.length - numToPreserve;
-        
-        // Edge case: if nothing to compactify, just return recent messages
-        if (numToCompactify <= 0) {
-            return messages.slice(-numToPreserve);
-        }
-        
-        const oldMessages = messages.slice(0, numToCompactify);
-        const recentMessages = messages.slice(numToCompactify);
-        
-        // Build compactified conversation history
-        const compactifiedLines: string[] = [
-            '<Compactified Conversation History>',
-            `[${numToCompactify} older messages condensed for context efficiency]`,
-            ''
-        ];
-        
-        for (const msg of oldMessages) {
-            try {
-                // Extract role label
-                const roleLabel = msg.role === 'assistant' ? 'assistant (you)' : msg.role === 'user' ? 'User' : msg.role;
-                
-                // Extract and process message content
-                let messageText = '';
-                
-                if (typeof msg.content === 'string') {
-                    messageText = msg.content;
-                } else if (Array.isArray(msg.content)) {
-                    // Handle multi-modal content
-                    const textParts = msg.content
-                        .filter(item => item.type === 'text')
-                        .map(item => item.text)
-                        .join(' ');
-                    
-                    const imageCount = msg.content.filter(item => item.type === 'image_url').length;
-                    
-                    messageText = textParts;
-                    if (imageCount > 0) {
-                        messageText += ` [${imageCount} image(s) attached]`;
-                    }
-                } else if (msg.content === null || msg.content === undefined) {
-                    // Handle tool calls or empty messages
-                    if (msg.tool_calls && msg.tool_calls.length > 0) {
-                        const toolNames = msg.tool_calls
-                            .map(tc => {
-                                // Safe accessor for different OpenAI SDK versions
-                                const func = (tc as any).function;
-                                return func?.name || 'unknown_tool';
-                            })
-                            .join(', ');
-                        messageText = `[Used tools: ${toolNames}]`;
-                    } else {
-                        messageText = '[Empty message]';
-                    }
-                }
-                
-                // Strip system context tags from the message
-                messageText = this.stripSystemContext(messageText);
-                
-                // Truncate if exceeds max length
-                if (messageText.length > MAX_MESSAGE_LENGTH) {
-                    messageText = messageText.substring(0, MAX_MESSAGE_LENGTH) + '...';
-                }
-                
-                // Clean up whitespace and newlines for compactness
-                messageText = messageText
-                    .replace(/\n+/g, ' ')  // Replace newlines with spaces
-                    .replace(/\s+/g, ' ')   // Collapse multiple spaces
-                    .trim();
-                
-                // Add to compactified history
-                if (messageText) {
-                    compactifiedLines.push(`${roleLabel}: ${messageText}`);
-                }
-            } catch (error) {
-                // Gracefully handle any malformed messages
-                console.warn('Failed to process message during compactification:', error);
-                compactifiedLines.push(`[Message processing error]`);
+
+            const numToPreserve = Math.ceil(messages.length * PRESERVE_RECENT_RATIO);
+            const numToCompactify = messages.length - numToPreserve;
+
+            if (numToCompactify <= 0) {
+                return messages.slice(-numToPreserve);
             }
-        }
-        
+
+            const oldMessages = messages.slice(0, numToCompactify);
+            const recentMessages = messages.slice(numToCompactify);
+
+            const compactifiedLines: string[] = [
+                '<Compactified Conversation History>',
+                `[${numToCompactify} older messages condensed for context efficiency]`,
+                ''
+            ];
+
+            for (const msg of oldMessages) {
+                try {
+                    const roleLabel = msg.role === 'assistant' ? 'assistant (you)' : msg.role === 'user' ? 'User' : msg.role;
+                    let messageText = '';
+
+                    if (typeof msg.content === 'string') {
+                        messageText = msg.content;
+                    } else if (Array.isArray(msg.content)) {
+                        const textParts = msg.content
+                            .filter(item => item.type === 'text')
+                            .map(item => item.text)
+                            .join(' ');
+
+                        const imageCount = msg.content.filter(item => item.type === 'image_url').length;
+
+                        messageText = textParts;
+                        if (imageCount > 0) {
+                            messageText += ` [${imageCount} image(s) attached]`;
+                        }
+                    } else if (msg.content === null || msg.content === undefined) {
+                        if (msg.tool_calls && msg.tool_calls.length > 0) {
+                            const toolNames = msg.tool_calls
+                                .map(tc => {
+                                    const func = (tc as any).function;
+                                    return func?.name || 'unknown_tool';
+                                })
+                                .join(', ');
+                            messageText = `[Used tools: ${toolNames}]`;
+                        } else {
+                            messageText = '[Empty message]';
+                        }
+                    }
+
+                    messageText = this.stripSystemContext(messageText);
+
+                    if (messageText.length > MAX_MESSAGE_LENGTH) {
+                        messageText = messageText.substring(0, MAX_MESSAGE_LENGTH) + '...';
+                    }
+
+                    messageText = messageText
+                        .replace(/\n+/g, ' ')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+
+                    if (messageText) {
+                        compactifiedLines.push(`${roleLabel}: ${messageText}`);
+                    }
+                } catch (error) {
+                    console.warn('Failed to process message during compactification:', error);
+                    compactifiedLines.push(`[Message processing error]`);
+                }
+            }
+
             compactifiedLines.push('');
             compactifiedLines.push('---');
             compactifiedLines.push('[Recent conversation continues below in full detail...]');
-            
-            // Create the compactified summary message
+
             const compactifiedMessage: ConversationMessage = {
                 role: 'user' as MessageRole,
                 content: compactifiedLines.join('\n'),
                 conversationId: `compactified-${Date.now()}`
             };
-            
-            // Return compactified message + recent full messages
+
             return [compactifiedMessage, ...recentMessages];
         } catch (error) {
-            // If compactification fails, fall back to returning original messages
-            // or a safe subset to prevent complete failure
             console.error('Error during context compactification:', error);
-            
-            // Safe fallback: return recent messages only if above threshold
+
             const COMPACTION_THRESHOLD = Math.floor(0.8 * MAX_LLM_MESSAGES);
             if (messages.length >= COMPACTION_THRESHOLD) {
                 const safeSubset = Math.ceil(messages.length * 0.4);
                 console.warn(`Compactification failed, returning last ${safeSubset} messages as fallback`);
                 return messages.slice(-safeSubset);
             }
-            
-            // Below threshold, return all messages
+
             return messages;
         }
     }
 
-
     async execute(inputs: UserConversationInputs, options: OperationOptions): Promise<UserConversationOutputs> {
         const { env, logger, context, agent } = options;
         const { userMessage, pastMessages, errors, images, projectUpdates } = inputs;
-        logger.info("Processing user message", { 
+
+        logger.info("Processing user message", {
             messageLength: inputs.userMessage.length,
             hasImages: !!images && images.length > 0,
             imageCount: images?.length || 0
@@ -348,8 +456,7 @@ export class UserConversationProcessor extends AgentOperation<UserConversationIn
 
         try {
             const systemPromptMessages = getSystemPromptWithProjectContext(SYSTEM_PROMPT, context, CodeSerializerType.SIMPLE);
-            
-            // Create user message with optional images for inference
+
             const userPromptForInference = buildUserMessageWithContext(userMessage, errors, projectUpdates, true);
             const userMessageForInference = images && images.length > 0
                 ? createMultiModalUserMessage(
@@ -358,23 +465,19 @@ export class UserConversationProcessor extends AgentOperation<UserConversationIn
                     'high'
                 )
                 : createUserMessage(userPromptForInference);
-            
-            // For conversation history, store only text (images are ephemeral and not persisted)
+
             const userPromptForHistory = buildUserMessageWithContext(userMessage, errors, projectUpdates, false);
             const userMessageForHistory = images && images.length > 0
                 ? createUserMessage(`${userPromptForHistory}\n\n[${images.length} image(s) attached]`)
                 : createUserMessage(userPromptForHistory);
-            
+
             const messages = [...pastMessages, {...userMessageForHistory, conversationId: IdGenerator.generateConversationId()}];
 
             let extractedUserResponse = "";
-            
-            // Generate unique conversation ID for this turn
             const aiConversationId = IdGenerator.generateConversationId();
 
             logger.info("Generated conversation ID", { aiConversationId });
-            
-            // Assemble all tools with lifecycle callbacks for UI updates
+
             const tools: ToolDefinition<any, any>[] = [
                 ...buildTools(agent, logger)
             ].map(td => ({
@@ -395,8 +498,8 @@ export class UserConversationProcessor extends AgentOperation<UserConversationIn
 
             const compactifiedMessages = await this.compactifyContext(pastMessages);
             if (compactifiedMessages.length !== pastMessages.length) {
-                const numCompactified = pastMessages.length - (compactifiedMessages.length - 1); // -1 for the compactified summary message
-                logger.warn("Compactified conversation history to stay within token limit", { 
+                const numCompactified = pastMessages.length - (compactifiedMessages.length - 1);
+                logger.warn("Compactified conversation history", {
                     originalLength: pastMessages.length,
                     compactifiedLength: compactifiedMessages.length,
                     numOldMessagesCompacted: numCompactified,
@@ -404,21 +507,17 @@ export class UserConversationProcessor extends AgentOperation<UserConversationIn
                 });
             }
 
-            logger.info("Executing inference for user message", { 
+            logger.info("Executing inference for user message", {
                 messageLength: userMessage.length,
-                aiConversationId,
-                compactifiedMessages,
-                tools
+                aiConversationId
             });
-            
-            // Don't save the system prompts so that every time new initial prompts can be generated with latest project context
-            // Use inference message (with images) for AI, but store text-only in history
+
             const result = await executeInference({
                 env: env,
                 messages: [...systemPromptMessages, ...compactifiedMessages, {...userMessageForInference, conversationId: IdGenerator.generateConversationId()}],
                 agentActionName: "conversationalResponse",
                 context: options.inferenceContext,
-                tools, // Enable tools for the conversational AI
+                tools,
                 stream: {
                     onChunk: (chunk) => {
                         logger.info("Processing user message chunk", { chunkLength: chunk.length, aiConversationId });
@@ -429,7 +528,6 @@ export class UserConversationProcessor extends AgentOperation<UserConversationIn
                 }
             });
 
-            
             logger.info("Successfully processed user message", {
                 streamingSuccess: !!extractedUserResponse,
             });
@@ -438,8 +536,6 @@ export class UserConversationProcessor extends AgentOperation<UserConversationIn
                 userResponse: extractedUserResponse
             };
 
-            // Save the assistant's response to conversation history
-            // If tools were called, include the tool call messages from toolCallContext
             if (result.toolCallContext?.messages && result.toolCallContext.messages.length > 0) {
                 messages.push(
                     ...result.toolCallContext.messages
@@ -449,7 +545,8 @@ export class UserConversationProcessor extends AgentOperation<UserConversationIn
             }
             messages.push({...createAssistantMessage(result.string), conversationId: IdGenerator.generateConversationId()});
 
-            logger.info("Current conversation history", { messages });
+            logger.info("Current conversation history", { messageCount: messages.length });
+
             return {
                 conversationResponse,
                 messages: messages
@@ -458,9 +555,8 @@ export class UserConversationProcessor extends AgentOperation<UserConversationIn
             logger.error("Error processing user message:", error);
             if (error instanceof RateLimitExceededError || error instanceof SecurityError) {
                 throw error;
-            }   
-            
-            // Fallback response
+            }
+
             return {
                 conversationResponse: {
                     userResponse: FALLBACK_USER_RESPONSE
@@ -478,7 +574,6 @@ export class UserConversationProcessor extends AgentOperation<UserConversationIn
         try {
             logger.info("Processing project update", { updateType });
 
-            // Just save it as an assistant message. Dont save data for now to avoid DO size issues
             const preparedMessage = `**<Internal Memo>**
 Project Updates: ${updateType}
 </Internal Memo>`;
