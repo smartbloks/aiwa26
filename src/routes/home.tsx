@@ -44,9 +44,9 @@ export default function Home() {
 	// ], []);
 
 	const placeholderPhrases = useMemo(() => [
-		"SaaS landing page with waitlist",
-		"Linear-style project board",
-		"AI chat interface with streaming"
+		"AI chat with streaming",
+		"E-commerce store with cart",
+		"Task board like Trello"
 	], []);
 
 	const [currentPlaceholderPhraseIndex, setCurrentPlaceholderPhraseIndex] = useState(0);
@@ -177,7 +177,7 @@ export default function Home() {
 							discoverReady ? "mt-48" : "mt-[20vh] sm:mt-[24vh] md:mt-[28vh]"
 						)}>
 						<h1 className="text-shadow-sm text-shadow-red-200 dark:text-shadow-red-900 text-accent font-medium leading-[1.1] tracking-tight text-5xl w-full mb-4 bg-clip-text bg-gradient-to-r from-text-primary to-text-primary/90">
-							What do you want to build today?
+							Build anything, instantly
 						</h1>
 
 						<form
