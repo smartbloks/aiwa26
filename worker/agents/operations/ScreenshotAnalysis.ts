@@ -5,75 +5,90 @@ import { PROMPT_UTILS } from '../prompts';
 import { ScreenshotData } from '../core/types';
 import { AgentOperation, OperationOptions } from './common';
 import { OperationError } from '../utils/operationError';
+import {
+    extractImageUrls,
+    validateImageUrls,
+    BrokenImageFix,
+    getImageUrlGuidance
+} from '../utils/imageUrlValidator';
 
 export interface ScreenshotAnalysisInput {
     screenshotData: ScreenshotData,
+}
+
+// Extended analysis type to include image validation results
+export interface EnhancedScreenshotAnalysisType extends ScreenshotAnalysisType {
+    brokenImageUrls?: string[];
+    imageFixes?: BrokenImageFix[];
 }
 
 const SYSTEM_PROMPT = `You are a UI/UX Quality Assurance Specialist at Apple analyzing application screenshots against blueprint specifications.
 
 <ANALYSIS_FRAMEWORK>
 
-**Systematic Visual Inspection (Time-Boxed: ~2 minutes total):**
+**Systematic Visual Inspection (Time-Boxed: ~2-3 minutes total):**
 
 1. LAYOUT STRUCTURE (30 seconds):
    Check fundamental page structure:
-   □ Header present and positioned correctly?
-   □ Sidebar/navigation where blueprint specifies?
-   □ Main content area properly sized and positioned?
-   □ Footer present if specified in blueprint?
-   □ Grid/flexbox layout working as intended?
+   ☐ Header present and positioned correctly?
+   ☐ Sidebar/navigation where blueprint specifies?
+   ☐ Main content area properly sized and positioned?
+   ☐ Footer present if specified in blueprint?
+   ☐ Grid/flexbox layout working as intended?
 
    Look for: Misalignment, overlapping elements, broken containers
 
 2. COMPONENT PRESENCE (30 seconds):
    Verify all blueprint components are visible:
-   □ All specified buttons/forms/cards rendered?
-   □ Images/icons loaded (not broken/missing)?
-   □ Text content present and readable?
-   □ Interactive elements visible?
-   □ Data displays showing properly?
+   ☐ All specified buttons/forms/cards rendered?
+   ☐ Images loaded correctly (NO broken/missing images)?
+   ☐ Text content present and readable?
+   ☐ Interactive elements visible?
+   ☐ Data displays showing properly?
 
-   Look for: Missing components, placeholder content not replaced
+   **CRITICAL: Flag ANY broken or missing images as HIGH PRIORITY issues**
+   Look for: Missing components, placeholder content not replaced, broken images
 
-3. VISUAL POLISH (30 seconds):
+3. IMAGE VALIDATION (30 seconds - NEW):
+   Check all visible images:
+   ☐ Are all images actually loading?
+   ☐ Any placeholder icons or broken image indicators?
+   ☐ Do images appear correctly sized and positioned?
+   ☐ Are there alt text warnings in browser console?
+
+   **Images are a common failure point - pay close attention**
+
+4. VISUAL POLISH (30 seconds):
    Assess visual quality and professional appearance:
-   □ Spacing consistent (not cramped or excessive)?
-   □ Typography readable (appropriate size, contrast)?
-   □ Colors match blueprint intent and design system?
-   □ Alignment clean (no misaligned elements)?
-   □ Shadows/borders where expected?
-   □ Visual hierarchy clear?
+   ☐ Spacing consistent (not cramped or excessive)?
+   ☐ Typography readable (appropriate size, contrast)?
+   ☐ Colors match blueprint intent and design system?
+   ☐ Alignment clean (no misaligned elements)?
+   ☐ Shadows/borders where expected?
+   ☐ Visual hierarchy clear?
 
    Look for: Unprofessional appearance, poor spacing, weak contrast
 
-4. RESPONSIVE CHECK (30 seconds):
+5. RESPONSIVE CHECK (30 seconds):
    Validate layout for given viewport:
-   □ Content fits viewport (no unexpected overflow/scrolling)?
-   □ Text readable at current screen size?
-   □ Touch targets appropriate for device (mobile vs desktop)?
-   □ Layout doesn't break at this width?
-   □ Images scale appropriately?
+   ☐ Content fits viewport (no unexpected overflow/scrolling)?
+   ☐ Text readable at current screen size?
+   ☐ Touch targets appropriate for device?
+   ☐ Layout doesn't break at this width?
+   ☐ Images scale appropriately?
 
    Look for: Broken responsive behavior, mobile usability issues
 
-5. INTERACTION STATES (if visible - 10 seconds):
-   Check visible interactive states:
-   □ Hover states working/visible?
-   □ Focus states visible and clear?
-   □ Loading states appropriate?
-   □ Error/success states if applicable?
-
-   Look for: Missing feedback, unclear interaction affordances
-
 **Analysis Priority:**
-1. Critical Issues: Missing components, broken layouts, unreadable text
-2. High Priority: Incorrect positioning, poor spacing, missing states
-3. Medium Priority: Color mismatches, minor alignment issues
-4. Low Priority: Aesthetic improvements, subtle polish
+1. **Critical Issues**: Broken images, missing components, broken layouts, unreadable text
+2. **High Priority**: Incorrect positioning, poor spacing, missing states
+3. **Medium Priority**: Color mismatches, minor alignment issues
+4. **Low Priority**: Aesthetic improvements, subtle polish
 
-**Focus:** Deployment-blocking issues and blueprint compliance first.
+**Focus:** Broken images and deployment-blocking issues first.
 </ANALYSIS_FRAMEWORK>
+
+${getImageUrlGuidance()}
 
 <OUTPUT_STRUCTURE>
 Return structured findings with clear prioritization:
@@ -81,174 +96,67 @@ Return structured findings with clear prioritization:
 {
   "hasIssues": boolean,
   "criticalIssues": [
-    // Blocks functionality or makes app unusable
+    "Broken/missing images that prevent proper display",
     "Missing components that prevent core functionality",
     "Broken layouts that make content inaccessible",
-    "Unreadable text (too small, insufficient contrast)",
-    "Major responsive failures (content cut off, unusable on mobile)"
+    "Unreadable text (too small, insufficient contrast)"
   ],
   "highPriorityIssues": [
-    // Significantly impacts UX but doesn't block usage
     "Components mispositioned compared to blueprint",
+    "Image loading failures or broken image URLs",
     "Inconsistent or poor spacing affecting readability",
-    "Missing loading/error states",
-    "Important visual elements not prominent"
+    "Missing loading/error states"
   ],
   "mediumPriorityIssues": [
-    // Polish and refinement
     "Color scheme variations from blueprint",
     "Minor alignment inconsistencies",
-    "Suboptimal visual hierarchy",
-    "Missing hover states or micro-interactions"
+    "Suboptimal visual hierarchy"
   ],
   "uiCompliance": {
     "matchesBlueprint": boolean,
-    "complianceScore": 1-10, // 10 = perfect match, 1 = major deviations
+    "complianceScore": 1-10,
     "deviations": [
       "Specific differences from blueprint specifications"
     ]
   },
   "suggestions": [
-    // Actionable improvements prioritized by impact
-    "High Impact: [Suggestion that significantly improves UX]",
-    "Medium Impact: [Suggestion that enhances polish]"
+    "HIGH IMPACT: Fix broken image URLs - replace with reliable sources",
+    "HIGH IMPACT: [Other high-impact suggestions]",
+    "MEDIUM IMPACT: [Medium-impact suggestions]"
   ]
 }
 
-**Scoring Guide:**
-• 9-10: Near-perfect implementation, minor polish needed
-• 7-8: Good implementation, some refinements needed
-• 5-6: Functional but needs significant improvements
-• 3-4: Major issues present, requires substantial fixes
-• 1-2: Severely broken or non-functional
-
-**Issue Classification:**
-• Critical = Blocks usage or severely degrades experience
-• High Priority = Significantly impacts UX quality
-• Medium Priority = Polish and refinement opportunities
+**Image-Specific Scoring Impact:**
+• Broken images reduce score by 2-3 points
+• Missing images reduce score by 1-2 points
+• Low-quality images reduce score by 0.5-1 point
 
 </OUTPUT_STRUCTURE>
 
-<ANALYSIS_EXAMPLES>
+<CRITICAL_IMAGE_DETECTION>
+**How to Identify Broken Images in Screenshots:**
 
-**Example 1 - Game UI with Issues:**
-Blueprint: "Score display in top-right, centered game board, control buttons below board"
-Screenshot: Score in top-left, game board offset left, buttons partially cut off
+1. **Visual Indicators:**
+   • Broken image icon (usually a small square with an X)
+   • Placeholder text like "Image failed to load"
+   • Empty rectangular spaces where images should be
+   • Alt text displayed instead of image
+   • Browser's broken image indicator (varies by browser)
 
-Analysis:
-{
-  "hasIssues": true,
-  "criticalIssues": ["Control buttons partially cut off - unusable"],
-  "highPriorityIssues": [
-    "Score positioned in top-left instead of top-right per blueprint",
-    "Game board not centered, offset to left side"
-  ],
-  "mediumPriorityIssues": [],
-  "uiCompliance": {
-    "matchesBlueprint": false,
-    "complianceScore": 4,
-    "deviations": [
-      "Score placement: top-left vs specified top-right",
-      "Game board alignment: left-aligned vs specified center",
-      "Control buttons: partially cut off vs fully visible"
-    ]
-  },
-  "suggestions": [
-    "High Impact: Reposition score display to top-right corner",
-    "High Impact: Center game board in viewport",
-    "High Impact: Ensure control buttons fully visible with adequate spacing"
-  ]
-}
+2. **Context Clues:**
+   • Image container present but no visible image
+   • Layout gaps where images should fill space
+   • Misaligned content suggesting missing images
+   • Generic placeholder images instead of actual content
 
-**Example 2 - Dashboard Well Implemented:**
-Blueprint: "3-column responsive layout with sidebar, main content, and metrics panel"
-Screenshot: Shows proper 3-column layout, all sections visible and well-spaced
+3. **Severity Classification:**
+   • Hero images broken = CRITICAL
+   • Product/content images broken = HIGH
+   • Decorative images broken = MEDIUM
+   • Background images broken = MEDIUM
 
-Analysis:
-{
-  "hasIssues": false,
-  "criticalIssues": [],
-  "highPriorityIssues": [],
-  "mediumPriorityIssues": [
-    "Sidebar could use subtle shadow for better visual separation"
-  ],
-  "uiCompliance": {
-    "matchesBlueprint": true,
-    "complianceScore": 9,
-    "deviations": []
-  },
-  "suggestions": [
-    "Medium Impact: Add subtle shadow to sidebar for enhanced depth",
-    "Low Impact: Consider slightly larger font size for metric labels"
-  ]
-}
-
-**Example 3 - Mobile Responsive Issue:**
-Blueprint: "Responsive dashboard that stacks on mobile (< 768px)"
-Screenshot: Mobile view (375px width) shows horizontal scrolling, text cut off
-
-Analysis:
-{
-  "hasIssues": true,
-  "criticalIssues": [
-    "Horizontal scrolling on mobile viewport (375px width)",
-    "Text content cut off on right edge - unreadable"
-  ],
-  "highPriorityIssues": [
-    "Columns not stacking as specified for mobile breakpoint",
-    "Touch targets too small for mobile interaction (< 44px)"
-  ],
-  "mediumPriorityIssues": [],
-  "uiCompliance": {
-    "matchesBlueprint": false,
-    "complianceScore": 3,
-    "deviations": [
-      "Mobile layout: side-by-side columns vs specified stacked layout",
-      "Responsive behavior: horizontal scroll vs contained layout"
-    ]
-  },
-  "suggestions": [
-    "High Impact: Implement column stacking for viewports < 768px",
-    "High Impact: Ensure all content contained within viewport width",
-    "High Impact: Increase touch target sizes to minimum 44x44px"
-  ]
-}
-
-</ANALYSIS_EXAMPLES>
-
-<ANALYSIS_GUIDELINES>
-
-**What to Look For:**
-• Blueprint compliance: Does UI match specified requirements?
-• Visual quality: Does it look professional and polished?
-• Functionality: Can users actually use the interface?
-• Responsiveness: Does layout work for given viewport?
-• Completeness: Are all specified elements present?
-
-**What to Ignore:**
-• Minor aesthetic preferences not in blueprint
-• Pixel-perfect measurements (focus on visual correctness)
-• Features not mentioned in blueprint
-• Loading states if not visible in screenshot
-
-**How to Prioritize:**
-1. Functionality blockers (can't use the app)
-2. Blueprint deviations (doesn't match requirements)
-3. UX issues (confusing or difficult to use)
-4. Visual polish (looks unprofessional)
-5. Minor refinements (aesthetic improvements)
-
-**Be Specific:**
-❌ "Layout issues present"
-✅ "Game board offset left instead of centered as specified"
-
-❌ "Colors are wrong"
-✅ "Primary button using blue (#0000FF) instead of brand green (#00FF00)"
-
-❌ "Spacing problems"
-✅ "Insufficient padding between cards (8px vs specified 16px minimum)"
-
-</ANALYSIS_GUIDELINES>`;
+**Always explicitly mention broken images in analysis**
+</CRITICAL_IMAGE_DETECTION>`;
 
 const USER_PROMPT = `Analyze this screenshot against blueprint requirements.
 
@@ -258,79 +166,72 @@ const USER_PROMPT = `Analyze this screenshot against blueprint requirements.
 **Viewport:** {{viewport}}
 
 **Analysis Task:**
-Perform systematic inspection following the 5-point framework:
+Perform systematic inspection with **special focus on image loading**.
 
-1. **Layout Structure Check** (30s):
-   • Verify page structure matches blueprint
-   • Check header, sidebar, main content, footer positions
-   • Identify any layout breaks or misalignments
+1. **FIRST**: Check for broken or missing images (CRITICAL)
+2. Layout structure verification
+3. Component presence check
+4. Visual polish assessment
+5. Responsive validation
 
-2. **Component Presence Check** (30s):
-   • Confirm all blueprint components are visible
-   • Check for missing elements or broken images
-   • Verify text content is present
-
-3. **Visual Polish Assessment** (30s):
-   • Evaluate spacing, typography, colors
-   • Check alignment and visual hierarchy
-   • Assess professional appearance
-
-4. **Responsive Validation** (30s):
-   • Check content fits viewport properly
-   • Verify readability at current screen size
-   • Assess mobile usability if applicable
-
-5. **Interaction States Review** (10s if visible):
-   • Check for hover/focus state visibility
-   • Verify loading/error states if present
+**Image Validation Priority:**
+• Broken images are deployment blockers
+• Flag ANY image loading failures as CRITICAL or HIGH priority
+• Suggest replacing broken image URLs with reliable alternatives
+• Provide specific recommendations for image URL replacements
 
 **Output Requirements:**
 • Classify issues by priority: Critical, High, Medium
-• Provide compliance score (1-10)
+• **Explicitly call out broken images if detected**
+• Provide compliance score (reduce by 2-3 points for broken images)
 • List specific deviations from blueprint
 • Give actionable suggestions prioritized by impact
-• Focus on deployment-blocking issues first
+• **For broken images, suggest using Picsum Photos or other reliable sources**
 
 **Be Specific and Actionable:**
-Instead of "layout issues", say "game board offset 20px left of center"
-Instead of "color problems", say "button using #0000FF instead of specified #00FF00"
-Instead of "spacing wrong", say "card padding 8px instead of specified 16px"`;
+Instead of "images not loading", say "Hero image at top failed to load - replace Unsplash URL with https://picsum.photos/1920/1080?random=hero"
+Instead of "broken images", say "3 product card images showing broken image icons - replace with Picsum URLs"`;
 
-const userPromptFormatter = (screenshotData: { viewport: { width: number; height: number }; }, blueprint: Blueprint) => {
+function userPromptFormatter(
+    screenshotData: { viewport: { width: number; height: number } },
+    blueprint: Blueprint
+): string {
     const prompt = PROMPT_UTILS.replaceTemplateVariables(USER_PROMPT, {
         blueprint: JSON.stringify(blueprint, null, 2),
-        viewport: `${screenshotData.viewport.width}x${screenshotData.viewport.height}`
+        viewport: `${screenshotData.viewport.width}x${screenshotData.viewport.height}`,
     });
     return PROMPT_UTILS.verifyPrompt(prompt);
 }
 
-export class ScreenshotAnalysisOperation extends AgentOperation<ScreenshotAnalysisInput, ScreenshotAnalysisType> {
+export class ScreenshotAnalysisOperation extends AgentOperation<
+    ScreenshotAnalysisInput,
+    EnhancedScreenshotAnalysisType
+> {
     async execute(
         input: ScreenshotAnalysisInput,
         options: OperationOptions
-    ): Promise<ScreenshotAnalysisType> {
+    ): Promise<EnhancedScreenshotAnalysisType> {
         const { screenshotData } = input;
         const { env, context, logger } = options;
 
         try {
-            logger.info('Analyzing screenshot from preview', {
+            logger.info('Analyzing screenshot with enhanced image validation', {
                 url: screenshotData.url,
                 viewport: screenshotData.viewport,
-                hasScreenshotData: !!screenshotData.screenshot,
-                screenshotDataLength: screenshotData.screenshot?.length || 0
             });
 
             if (!screenshotData.screenshot) {
                 throw new Error('No screenshot data available for analysis');
             }
 
+            // Step 1: Perform AI-based screenshot analysis
             const messages = [
                 createSystemMessage(SYSTEM_PROMPT),
                 createMultiModalUserMessage(
                     userPromptFormatter(screenshotData, context.blueprint),
                     screenshotData.screenshot,
                     'high'
-                )
+                ),
             ];
 
             const { object: analysisResult } = await executeInference({
@@ -339,7 +240,7 @@ export class ScreenshotAnalysisOperation extends AgentOperation<ScreenshotAnalys
                 schema: ScreenshotAnalysisSchema,
                 agentActionName: 'screenshotAnalysis',
                 context: options.inferenceContext,
-                retryLimit: 3
+                retryLimit: 3,
             });
 
             if (!analysisResult) {
@@ -347,22 +248,83 @@ export class ScreenshotAnalysisOperation extends AgentOperation<ScreenshotAnalys
                 throw new Error('No analysis result');
             }
 
-            logger.info('Screenshot analysis completed', {
-                hasIssues: analysisResult.hasIssues,
-                issueCount: analysisResult.issues.length,
-                matchesBlueprint: analysisResult.uiCompliance.matchesBlueprint
+            // Step 2: Validate image URLs in the current codebase
+            logger.info('Validating image URLs in codebase...');
+            const allFiles = context.allFiles;
+            const imageUrls: string[] = [];
+
+            // Extract all image URLs from all files
+            allFiles.forEach(file => {
+                const urls = extractImageUrls(file.fileContents);
+                imageUrls.push(...urls);
             });
 
-            if (analysisResult.hasIssues) {
-                logger.warn('UI issues detected in screenshot', {
-                    issues: analysisResult.issues,
-                    deviations: analysisResult.uiCompliance.deviations
+            // Remove duplicates
+            const uniqueImageUrls = [...new Set(imageUrls)];
+
+            if (uniqueImageUrls.length > 0) {
+                logger.info(`Found ${uniqueImageUrls.length} image URLs to validate`);
+
+                // Validate URLs (limit to 20 to avoid excessive requests)
+                const urlsToValidate = uniqueImageUrls.slice(0, 20);
+                const validationResults = await validateImageUrls(urlsToValidate, 5);
+
+                // Collect broken URLs
+                const brokenUrls: string[] = [];
+                const fixes: BrokenImageFix[] = [];
+
+                validationResults.forEach((result, url) => {
+                    if (!result.isValid) {
+                        brokenUrls.push(url);
+                        if (result.alternativeUrl) {
+                            fixes.push({
+                                originalUrl: url,
+                                replacementUrl: result.alternativeUrl,
+                                reason: `URL validation failed (status: ${result.statusCode || 'error'})`,
+                            });
+                        }
+                    }
                 });
+
+                if (brokenUrls.length > 0) {
+                    logger.warn(`Found ${brokenUrls.length} broken image URLs`, { brokenUrls });
+                }
+
+                // Enhance analysis result with image validation data
+                const enhancedResult: EnhancedScreenshotAnalysisType = {
+                    ...analysisResult,
+                    brokenImageUrls: brokenUrls,
+                    imageFixes: fixes,
+                };
+
+                // If we found broken URLs but AI didn't detect them, add to issues
+                if (brokenUrls.length > 0 && !analysisResult.hasIssues) {
+                    enhancedResult.hasIssues = true;
+                    enhancedResult.issues = [
+                        ...(analysisResult.issues || []),
+                        `${brokenUrls.length} broken image URL(s) detected in codebase - will cause loading failures`,
+                    ];
+                }
+
+                logger.info('Enhanced screenshot analysis completed', {
+                    hasIssues: enhancedResult.hasIssues,
+                    issueCount: enhancedResult.issues.length,
+                    brokenImages: brokenUrls.length,
+                    matchesBlueprint: enhancedResult.uiCompliance.matchesBlueprint,
+                });
+
+                return enhancedResult;
             }
 
-            return analysisResult;
+            // No images found to validate, return standard analysis
+            logger.info('No image URLs found in codebase to validate');
+            return {
+                ...analysisResult,
+                brokenImageUrls: [],
+                imageFixes: [],
+            };
         } catch (error) {
-            OperationError.logAndThrow(logger, "screenshot analysis", error);
+            OperationError.logAndThrow(logger, 'screenshot analysis', error);
         }
     }
 }

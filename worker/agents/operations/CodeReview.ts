@@ -131,6 +131,104 @@ IF issue requires coordinated multi-file changes:
    • Using dependencies not in package.json
 </REACT_SPECIFIC_ISSUES>
 
+<IMAGE_URL_VALIDATION>
+**CRITICAL PRIORITY: Broken Image URLs**
+
+Broken image URLs are a recurring deployment issue that must be caught during code review.
+
+**Detection Protocol:**
+
+1. **Scan for Image URLs in Code:**
+   • Look for patterns: https://images.unsplash.com/*, any image URLs
+   • Check <img src="...">, background-image: url(...), etc.
+   • Identify all image references in JSX/TSX/CSS
+
+2. **Flag Suspicious Patterns:**
+   • Unsplash URLs with generic photo IDs (likely to 404)
+   • URLs without proper dimensions specified
+   • Hardcoded image URLs without fallbacks
+   • Image URLs in commented-out code
+
+3. **Classify as HIGH PRIORITY Issues:**
+   {
+     "file": "src/components/Hero.tsx",
+     "issues": [
+       "Broken Unsplash image URL detected: https://images.unsplash.com/photo-1234567890",
+       "Image URL likely to return 404 - no validation or fallback present"
+     ],
+     "priority": "High",
+     "fix_scope": "Replace Unsplash URL with reliable Picsum Photos alternative",
+     "context": "Hero component uses hardcoded Unsplash URL without validation",
+     "validation": "Verify image loads in browser preview"
+   }
+
+4. **Recommended Fixes:**
+   For each broken image URL, specify:
+   • **Remove**: Unsplash URL pattern https://images.unsplash.com/photo-[ID]
+   • **Replace with**: https://picsum.photos/[width]/[height]?random=[seed]
+   • **Reason**: Reliable 99.9% uptime, no broken links
+   • **Example**: Replace "https://images.unsplash.com/photo-1544367567"
+                  with "https://picsum.photos/1920/1080?random=hero"
+
+**Detection Examples:**
+
+❌ BAD - Flag These:
+\`\`\`tsx
+<img src="https://images.unsplash.com/photo-1544367567-0f2fcb009e0b" />
+<img src="https://images.unsplash.com/photo-1591291621265" />
+\`\`\`
+
+✅ GOOD - Allow These:
+\`\`\`tsx
+<img src="https://picsum.photos/800/600?random=hero" />
+<img src="https://via.placeholder.com/800x600" />
+\`\`\`
+
+**Integration with Review Passes:**
+
+• **PASS 1 (Crash Prevention)**:
+  - Broken image URLs can cause loading failures
+  - Flag if images are critical to app functionality
+
+• **PASS 2 (Logic Validation)**:
+  - Check if image loading has proper error handling
+  - Verify fallback images exist
+
+• **PASS 3 (Quality Scan)**:
+  - Flag hardcoded image URLs as quality issue
+  - Suggest using validated, reliable sources
+
+**Output Format:**
+
+When broken images are detected, include in CodeReviewOutput:
+
+\`\`\`typescript
+{
+  "filesToFix": [
+    {
+      "file": "src/components/ImageGallery.tsx",
+      "issues": [
+        "Line 45: Broken Unsplash URL detected - replace with reliable alternative",
+        "Line 67: Another Unsplash URL likely to 404 - use Picsum Photos instead"
+      ],
+      "priority": "High",
+      "fix_scope": "Replace 2 Unsplash URLs with Picsum Photos alternatives:\\n- Line 45: https://picsum.photos/600/400?random=gallery-1\\n- Line 67: https://picsum.photos/600/400?random=gallery-2",
+      "context": "Component uses hardcoded Unsplash URLs without validation or fallback",
+      "validation": "Verify all gallery images load without errors in browser preview"
+    }
+  ]
+}
+\`\`\`
+
+**Special Instructions:**
+
+• Check EVERY file that contains image URLs
+• Don't skip files even if they have no other issues
+• Be explicit about which URLs to replace and with what
+• Provide complete replacement URLs, not just patterns
+• Group image URL fixes by file for efficient fixing
+</IMAGE_URL_VALIDATION>
+
 ${PROMPT_UTILS.COMMANDS}
 
 <COMMON_PITFALLS>
@@ -204,6 +302,7 @@ Quick scan for:
 • Broken responsive layouts
 • Accessibility issues (missing ARIA, alt text)
 • Obvious performance issues
+• **Broken image URLs (Unsplash patterns)**
 
 Output: Quality issues grouped by file
 

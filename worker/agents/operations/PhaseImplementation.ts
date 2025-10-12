@@ -12,6 +12,8 @@ import { IsRealtimeCodeFixerEnabled, RealtimeCodeFixer } from '../assistants/rea
 import { AGENT_CONFIG } from '../inferutils/config';
 import { CodeSerializerType } from '../utils/codeSerializers';
 import type { UserContext } from '../core/types';
+import { getImageUrlGuidance } from '../utils/imageUrlValidator';
+import { getSeoGuidance } from '../utils/seoGuidance';
 
 export interface PhaseImplementationInputs {
     phase: PhaseConceptType
@@ -173,6 +175,10 @@ ${PROMPT_UTILS.REACT_RENDER_LOOP_PREVENTION}
 • If first phase, override template boilerplate with actual application
 • Product must be FUNCTIONAL, POLISHED, AND VISUALLY STUNNING
 </IMPLEMENTATION_STANDARDS>
+
+${getImageUrlGuidance()}
+
+${getSeoGuidance()}
 
 <COMMON_PITFALLS_TO_AVOID>
 ${PROMPT_UTILS.COMMON_PITFALLS}
