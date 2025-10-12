@@ -9,6 +9,7 @@ import { TemplateRegistry } from '../inferutils/schemaFormatters';
 import type { ImageAttachment } from '../../types/image-attachment';
 import z from 'zod';
 import { getImageUrlGuidance } from '../utils/imageUrlValidator';
+import { getSeoGuidance } from '../utils/seoGuidance';
 
 const logger = createLogger('Blueprint');
 
@@ -141,6 +142,8 @@ Always use image URLs from the web or placeholder services
 </CRITICAL_CONSTRAINTS>
 
 ${getImageUrlGuidance()}
+
+${getSeoGuidance()}
 
 **Make sure ALL the files that need to be created or modified are explicitly written out in the blueprint.**
 <STARTING TEMPLATE>

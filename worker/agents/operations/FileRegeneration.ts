@@ -4,6 +4,7 @@ import { RealtimeCodeFixer } from '../assistants/realtimeCodeFixer';
 import { FileOutputType } from '../schemas';
 import { AGENT_CONFIG } from '../inferutils/config';
 import { getImageUrlGuidance } from '../utils/imageUrlValidator';
+import { getSeoGuidance } from '../utils/seoGuidance';
 
 export interface FileRegenerationInputs {
     file: FileOutputType;
@@ -74,6 +75,8 @@ Requires >20 lines or interface changes? → Tier 3 (explain instead)
 </FIX_SAFETY_TIERS>
 
 ${getImageUrlGuidance()}
+
+${getSeoGuidance()}
 
 <VALIDATION_FRAMEWORK>
 After generating fix, run mental checklist:

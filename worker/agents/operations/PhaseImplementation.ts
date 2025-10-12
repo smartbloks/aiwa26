@@ -13,6 +13,7 @@ import { AGENT_CONFIG } from '../inferutils/config';
 import { CodeSerializerType } from '../utils/codeSerializers';
 import type { UserContext } from '../core/types';
 import { getImageUrlGuidance } from '../utils/imageUrlValidator';
+import { getSeoGuidance } from '../utils/seoGuidance';
 
 export interface PhaseImplementationInputs {
     phase: PhaseConceptType
@@ -176,6 +177,8 @@ ${PROMPT_UTILS.REACT_RENDER_LOOP_PREVENTION}
 </IMPLEMENTATION_STANDARDS>
 
 ${getImageUrlGuidance()}
+
+${getSeoGuidance()}
 
 <COMMON_PITFALLS_TO_AVOID>
 ${PROMPT_UTILS.COMMON_PITFALLS}
