@@ -6,6 +6,11 @@ import { FileOutputType, PhaseConceptType } from '../schemas';
 import { SCOFFormat } from '../output-formats/streaming-formats/scof';
 import { CodeIssue } from '../../services/sandbox/sandboxTypes';
 import { CodeSerializerType } from '../utils/codeSerializers';
+import {
+    autoFixImageUrls,
+    IMAGE_FIX_SYSTEM_PROMPT,
+    IMAGE_FIX_USER_PROMPT
+} from './ImageUrlFixerEnhancement';
 
 export interface FastCodeFixerInputs {
     query: string;
@@ -72,6 +77,8 @@ Focus on high-confidence, low-risk fixes that address specific problems without 
 
 **Focus on High Confidence Fixes Only**
 </FIX_APPROACH>
+
+${IMAGE_FIX_SYSTEM_PROMPT}
 
 <FIX_GUIDELINES>
 
@@ -202,12 +209,14 @@ const USER_PROMPT = `
 {{issues}}
 </REPORTED_ISSUES>
 
+${IMAGE_FIX_USER_PROMPT}
+
 <TASK>
 Analyze reported issues and generate fixed files using deterministic fix patterns.
 
 **Step 1: Issue Classification**
 For each issue, determine:
-• Issue type: Null safety / Render loop / Import error / Syntax / Type error
+• Issue type: Null safety / Render loop / Import error / Syntax / Type error / Image URL
 • Fix confidence: High / Medium / Low
 • File affected: Exact file path
 
@@ -233,6 +242,7 @@ For each file with high-confidence fixes:
 3. Import/module resolution errors
 4. TypeScript compilation errors
 5. Syntax errors and typos
+6. Broken image URLs
 
 **Skip:**
 • General code quality improvements
@@ -275,7 +285,19 @@ export class FastCodeFixerOperation extends AgentOperation<FastCodeFixerInputs, 
 
         logger.info(`Fast code fixer analyzing ${allFiles.length} files with ${issues.length} reported issues`);
 
-        const userPrompt = userPromptFormatter(query, issues, allFiles, allPhases);
+        // Pre-processing: Auto-fix broken image URLs FIRST
+        logger.info('Pre-processing: Checking for broken image URLs...');
+        const { fixedFiles, result } = await autoFixImageUrls(allFiles);
+
+        if (result.urlsReplaced > 0) {
+            logger.info(
+                `Auto-fixed ${result.urlsReplaced} broken image URLs in ${result.filesFixed} files`,
+                { fixes: result.fixes }
+            );
+        }
+
+        // Continue with existing logic using fixedFiles instead of allFiles
+        const userPrompt = userPromptFormatter(query, issues, fixedFiles, allPhases);
         const codeGenerationFormat = new SCOFFormat();
 
         const messages = [
@@ -283,14 +305,14 @@ export class FastCodeFixerOperation extends AgentOperation<FastCodeFixerInputs, 
             createUserMessage(userPrompt + codeGenerationFormat.formatInstructions())
         ];
 
-        const result = await executeInference({
+        const result_inference = await executeInference({
             env: env,
             messages,
             agentActionName: "fastCodeFixer",
             context: options.inferenceContext,
         });
 
-        const files = codeGenerationFormat.deserialize(result.string);
+        const files = codeGenerationFormat.deserialize(result_inference.string);
 
         logger.info(`Fast code fixer generated ${files.length} fixed files`);
 

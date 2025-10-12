@@ -3,6 +3,7 @@ import { AgentOperation, OperationOptions } from '../operations/common';
 import { RealtimeCodeFixer } from '../assistants/realtimeCodeFixer';
 import { FileOutputType } from '../schemas';
 import { AGENT_CONFIG } from '../inferutils/config';
+import { getImageUrlGuidance } from '../utils/imageUrlValidator';
 
 export interface FileRegenerationInputs {
     file: FileOutputType;
@@ -45,7 +46,7 @@ BEFORE touching any code:
    • Fix obvious type errors:
      const count: number = "5" → const count: number = 5
 
-⚠️  TIER 2 (Needs Validation - Proceed with Caution):
+⚠️ TIER 2 (Needs Validation - Proceed with Caution):
    • Modify state update logic
    • Change conditional statements
    • Adjust function parameters (check all call sites)
@@ -71,6 +72,8 @@ Can I fix this with <5 lines? → Tier 1
 Can I fix this with <20 lines without changing interfaces? → Tier 2
 Requires >20 lines or interface changes? → Tier 3 (explain instead)
 </FIX_SAFETY_TIERS>
+
+${getImageUrlGuidance()}
 
 <VALIDATION_FRAMEWORK>
 After generating fix, run mental checklist:

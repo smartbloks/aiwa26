@@ -8,18 +8,19 @@ import { InferenceContext } from '../inferutils/config.types';
 import { TemplateRegistry } from '../inferutils/schemaFormatters';
 import type { ImageAttachment } from '../../types/image-attachment';
 import z from 'zod';
+import { getImageUrlGuidance } from '../utils/imageUrlValidator';
 
 const logger = createLogger('Blueprint');
 
 const SYSTEM_PROMPT = `<ROLE>
-    You are a meticulous and forward-thinking Senior Software Architect and Product Manager at Cloudflare with extensive expertise in modern UI/UX design and visual excellence. 
+    You are a meticulous and forward-thinking Senior Software Architect and Product Manager at Cloudflare with extensive expertise in modern UI/UX design and visual excellence.
     Your expertise lies in designing clear, concise, comprehensive, and unambiguous blueprints (PRDs) for building production-ready scalable and visually stunning, piece-of-art web applications that users will love to use.
 </ROLE>
 
 <TASK>
     You are tasked with creating a detailed yet concise, information-dense blueprint (PRD) for a web application project for our client: designing and outlining the frontend UI/UX and core functionality of the application with exceptional focus on visual appeal and user experience.
     The project would be built on serverless Cloudflare workers and supporting technologies, and would run on Cloudflare's edge network. The project would be seeded with a starting template.
-    Focus on a clear and comprehensive design that prioritizes STUNNING VISUAL DESIGN, be to the point, explicit and detailed in your response, and adhere to our development process. 
+    Focus on a clear and comprehensive design that prioritizes STUNNING VISUAL DESIGN, be to the point, explicit and detailed in your response, and adhere to our development process.
     Enhance the user's request and expand on it, think creatively, be ambitious and come up with a very beautiful, elegant, feature complete and polished design. We strive for our products to be masterpieces of both function and form - visually breathtaking, intuitively designed, and delightfully interactive.
 </TASK>
 
@@ -126,6 +127,21 @@ const SYSTEM_PROMPT = `<ROLE>
 
 ${STRATEGIES.FRONTEND_FIRST_PLANNING}
 
+<CRITICAL_CONSTRAINTS>
+**DO NOT TOUCH THESE FILES:**
+• wrangler.jsonc / wrangler.toml
+• donttouch_files.json / .important_files.json
+• worker/index.ts / worker/core-utils.ts
+
+These are critical infrastructure - never suggest modifying them.
+
+**DO NOT WRITE IMAGE FILES:**
+Never generate .jpg, .png, .svg, .gif files
+Always use image URLs from the web or placeholder services
+</CRITICAL_CONSTRAINTS>
+
+${getImageUrlGuidance()}
+
 **Make sure ALL the files that need to be created or modified are explicitly written out in the blueprint.**
 <STARTING TEMPLATE>
 {{template}}
@@ -157,15 +173,15 @@ Preinstalled dependencies:
 
 // # Instructions
 // - Provide clear, explicit detail for all aspects: architecture, layout, design system, page/component composition, and application logic.
-// - Improve and expand upon the user’s request, making the design ambitious, beautiful, and a true piece of art.
+// - Improve and expand upon the user's request, making the design ambitious, beautiful, and a true piece of art.
 // - Explicitly use existing components, utilities, and backend APIs provided by the starting template. No redundant work or generic advice.
-// - Adhere to the company’s iterative, phase-based development—ship a polished and working frontend early, then expand functionality and backend integration.
+// - Adhere to the company's iterative, phase-based development—ship a polished and working frontend early, then expand functionality and backend integration.
 // - When the application is simple or primarily static, keep the implementation minimal (1-2 files phase, 1 phase).
 // - For complex applications, thoroughly plan the initial (frontend) phase and subsequent features/logic expansion phases, mapping views, user flows, and file structure.
 
 // ## Design System & Aesthetics
 // - Select a color palette and typography appropriate to the client request and style.
-// - All spacing (padding, margins, gaps) MUST be based on Tailwind’s default spacing units.
+// - All spacing (padding, margins, gaps) MUST be based on Tailwind's default spacing units.
 // - Do not remove existing Tailwind classes in template configs; only extend as needed.
 // - Ensure logical, balanced page margins and internal spacing.
 // - Layouts must be visually appealing, responsive, and user-friendly at all breakpoints, prioritizing keyboard/mouse interactions.
@@ -179,9 +195,9 @@ Preinstalled dependencies:
 // - No empty states without messaging; always provide async feedback; robust error boundaries.
 
 // ## Frameworks & Dependencies
-// - Suggest a complete list of high-quality libraries and packages for the project, focusing on “batteries included” options to enable rapid development.
+// - Suggest a complete list of high-quality libraries and packages for the project, focusing on "batteries included" options to enable rapid development.
 // - Only propose dependencies that do not require environment variables and can be used immediately.
-// - Propose additional asset libraries for icons, SVGs, etc., in the ‘frameworks’ list.
+// - Propose additional asset libraries for icons, SVGs, etc., in the 'frameworks' list.
 
 // ## Algorithm & Logic (If Required)
 // - For games: specify rules, state transitions, and win/lose conditions, with explicit before/after test examples.
@@ -297,7 +313,7 @@ export async function generateBlueprint({ env, inferenceContext, query, language
 
         // Log messages to console for debugging
         // logger.info('Blueprint messages:', JSON.stringify(messages, null, 2));
-        
+
         // let reasoningEffort: "high" | "medium" | "low" | undefined = "medium" as const;
         // if (templateMetaInfo?.complexity === 'simple' || templateMetaInfo?.complexity === 'moderate') {
         //     console.log(`Using medium reasoning for simple/moderate queries`);
