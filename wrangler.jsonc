@@ -152,7 +152,7 @@
 		"SANDBOX_INSTANCE_TYPE": "standard-4",
 		"TEMPLATES_REPOSITORY": "https://github.com/cloudflare/vibesdk-templates",
 		"GOOGLE_CLIENT_ID": "694595631875-poqogqmsm9ek9sag98si40ec5ejh8o6r.apps.googleusercontent.com",
-		"GITHUB_EXPORTER_CLIENT_ID": "Iv23lij6UrRHe5UUmYnY",
+		"GITHUB_EXPORTER_CLIENT_ID": "Ov23liwXSpJCZEq90daW",
 		"GITHUB_CLIENT_ID": "Ov23lijPzQXkoh7MgZwm",
 		"ENVIRONMENT": "production"
     },
