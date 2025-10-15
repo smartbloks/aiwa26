@@ -58,7 +58,7 @@ import type{
     RateLimitError
 } from '@/api-types';
 import {
-    
+
     RateLimitExceededError,
     SecurityError,
     SecurityErrorType,
@@ -191,7 +191,7 @@ class ApiClient {
 				method: 'GET',
 				credentials: 'include',
 			});
-			
+
 			if (response.ok) {
 				const data: ApiResponse<CsrfTokenResponseData> = await response.json();
 				if (data.data?.token) {
@@ -226,12 +226,12 @@ class ApiClient {
 		if (!['POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase())) {
 			return true;
 		}
-		
+
 		// Fetch new token if none exists or current one is expired
 		if (!this.csrfTokenInfo || this.isCSRFTokenExpired()) {
 			return await this.fetchCsrfToken();
 		}
-		
+
 		return true;
 	}
 
@@ -301,7 +301,7 @@ class ApiClient {
         noToast: boolean = false,
 	): Promise<{ response: Response; data: ApiResponse<T> | null }> {
 		this.ensureSessionToken();
-		
+
 		if (!await this.ensureCsrfToken(options.method || 'GET')) {
 			throw new ApiError(
 				500,
@@ -331,12 +331,12 @@ class ApiClient {
 
 		try {
 			const response = await fetch(url, config);
-			
+
 			// For streaming responses, skip JSON parsing if response is ok
 			if (options.skipJsonParsing && response.ok) {
 				return { response, data: null };
 			}
-			
+
 			const data = await response.json() as ApiResponse<T>;
 
 			if (!response.ok) {
@@ -501,6 +501,82 @@ class ApiClient {
 	}
 
 	// ===============================
+	// Custom Domain API Methods
+	// ===============================
+
+	/**
+	 * Add custom domain to an app
+	 * POST /api/apps/:appId/custom-domain
+	 */
+	async addCustomDomain(
+		appId: string,
+		hostname: string,
+	): Promise<ApiResponse<{
+		hostname: string;
+		status: string;
+		sslStatus?: string;
+		customHostnameId?: string;
+		verificationInstructions: {
+			type: string;
+			name: string;
+			target: string;
+			instructions: string;
+		};
+	}>> {
+		return this.request(`/api/apps/${appId}/custom-domain`, {
+			method: 'POST',
+			body: { hostname },
+		});
+	}
+
+	/**
+	 * Get custom domain status for an app
+	 * GET /api/apps/:appId/custom-domain/status
+	 */
+	async getCustomDomainStatus(
+		appId: string,
+	): Promise<ApiResponse<{
+		hostname: string;
+		status: string;
+		sslStatus?: string;
+		verificationErrors?: string[];
+		isActive: boolean;
+	}>> {
+		return this.request(`/api/apps/${appId}/custom-domain/status`);
+	}
+
+	/**
+	 * Remove custom domain from an app
+	 * DELETE /api/apps/:appId/custom-domain
+	 */
+	async removeCustomDomain(
+		appId: string,
+	): Promise<ApiResponse<{ success: boolean }>> {
+		return this.request(`/api/apps/${appId}/custom-domain`, {
+			method: 'DELETE',
+		});
+	}
+
+	/**
+	 * Verify custom domain (manually trigger verification check)
+	 * POST /api/apps/:appId/custom-domain/verify
+	 * Returns the same data as getCustomDomainStatus
+	 */
+	async verifyCustomDomain(
+		appId: string,
+	): Promise<ApiResponse<{
+		hostname: string;
+		status: string;
+		sslStatus?: string;
+		verificationErrors?: string[];
+		isActive: boolean;
+	}>> {
+		return this.request(`/api/apps/${appId}/custom-domain/verify`, {
+			method: 'POST',
+		});
+	}
+
+	// ===============================
 	// App View API Methods
 	// ===============================
 
@@ -566,14 +642,14 @@ class ApiClient {
 				body: args,
 				skipJsonParsing: true, // Don't parse JSON for streaming response
 			});
-			
+
 			// Check if response is ok
 			if (!response.ok) {
 				// Parse error response if available
 				const errorMessage = data?.error?.message || `Agent creation failed with status: ${response.status}`;
 				throw new Error(errorMessage);
 			}
-			
+
 			return {
 				success: true,
 				stream: response
@@ -582,7 +658,7 @@ class ApiClient {
 			// Handle any network or parsing errors
 			const errorMessage = error instanceof Error ? error.message : 'Failed to create agent session';
 			toast.error(errorMessage);
-			
+
             throw new Error(errorMessage);
 		}
 	}

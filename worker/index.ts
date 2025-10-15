@@ -189,6 +189,11 @@ const worker = {
 		const isSubdomainRequest =
 			hostname.endsWith(`.${previewDomain}`) ||
 			(hostname.endsWith('.localhost') && hostname !== 'localhost');
+		const customDomainApp = await env.DB.prepare(`
+			SELECT id, deployment_id
+			FROM apps
+			WHERE custom_domain = ? AND custom_domain_status = 'active'
+		`).bind(hostname).first();
 
 		// Route 1: Main Platform Request (e.g., build.cloudflare.dev or localhost)
 		if (isMainDomainRequest) {
@@ -205,6 +210,10 @@ const worker = {
 		// Route 2: User App Request (e.g., xyz.build.cloudflare.dev or test.localhost)
 		if (isSubdomainRequest) {
 			return handleUserAppRequest(request, env);
+		}
+
+		if (customDomainApp) {
+			return await handleUserAppRequest(request, env);
 		}
 
 		return new Response('Not Found', { status: 404 });
