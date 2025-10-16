@@ -38,7 +38,7 @@ import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { CustomDomainDialog } from '@/components/dialogs';
-import { Globe, Save } from 'lucide-react';
+import { Globe } from 'lucide-react';
 
 export default function Chat() {
 	const { chatId: urlChatId } = useParams();
@@ -870,7 +870,7 @@ export default function Chat() {
 											</div>
 
 											<div className="flex items-center justify-end gap-1.5">
-												<button
+												{/* <button
 												className="flex items-center gap-1.5 px-2 py-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-md transition-all duration-200 text-xs font-medium shadow-sm"
 												onClick={() => handleDeployToCloudflare(chatId!)}
 												disabled={isDeploying}
@@ -882,7 +882,7 @@ export default function Chat() {
 													<Save className="size-3" />
 												)}
 												{isDeploying ? 'Deploying...' : 'Save'}
-											</button>
+											</button> */}
 
 												<button
 													className="flex items-center gap-1.5 px-2 py-1 bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-slate-50 rounded-md transition-all duration-200 text-xs font-medium shadow-sm"
