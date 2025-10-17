@@ -246,7 +246,7 @@ export class SandboxSdkClient extends BaseSandboxService {
 
     async downloadTemplate(templateName: string, downloadDir?: string) : Promise<ArrayBuffer> {
         // Fetch the zip file from R2
-        const downloadUrl = downloadDir ? `${downloadDir}/${templateName}-global.zip` : `${templateName}-global.zip`;
+        const downloadUrl = downloadDir ? `${downloadDir}/${templateName}.zip` : `${templateName}.zip`;
         this.logger.info(`Fetching object: ${downloadUrl} from R2 bucket`);
         const r2Object = await env.TEMPLATES_BUCKET.get(downloadUrl);
 
