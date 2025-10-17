@@ -2362,234 +2362,9 @@ export class SandboxSdkClient extends BaseSandboxService {
 		}
 	}
 
-	private async setWorkerEnvironmentVariables(
-		scriptName: string,
-		vars: Record<string, string>,
-	): Promise<void> {
-		const dispatchNamespace =
-			(env.DISPATCH_NAMESPACE as string) || 'vibesdk-default-namespace';
-		const url = `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/workers/dispatch/namespaces/${dispatchNamespace}/scripts/${scriptName}/settings`;
-
-		const response = await fetch(url, {
-			method: 'PATCH',
-			headers: {
-				Authorization: `Bearer ${env.CLOUDFLARE_API_TOKEN}`,
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({
-				bindings: Object.entries(vars).map(([name, value]) => ({
-					type: 'plain_text',
-					name,
-					text: value,
-				})),
-			}),
-		});
-
-		if (!response.ok) {
-			const error = await response.text();
-			this.logger.error('Failed to set worker environment variables', {
-				error,
-			});
-			throw new Error(
-				`Failed to set worker environment variables: ${error}`,
-			);
-		}
-
-		this.logger.info('Successfully set worker environment variables', {
-			scriptName,
-			varCount: Object.keys(vars).length,
-		});
-	}
-
 	// ==========================================
 	// DEPLOYMENT
 	// ==========================================
-	// async deployToCloudflareWorkers(instanceId: string): Promise<DeploymentResult> {
-	//     try {
-	//         this.logger.info('Starting deployment', { instanceId });
-
-	//         // Get project metadata
-	//         const metadata = await this.getInstanceMetadata(instanceId);
-	//         const projectName = metadata?.projectName || instanceId;
-
-	//         // Get credentials from environment (secure - no exposure to external processes)
-	//         const accountId = env.CLOUDFLARE_ACCOUNT_ID;
-	//         const apiToken = env.CLOUDFLARE_API_TOKEN;
-
-	//         if (!accountId || !apiToken) {
-	//             throw new Error('CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN must be set in environment');
-	//         }
-
-	//         const sandbox = this.getSandbox();
-	//         this.logger.info('Processing deployment', { instanceId });
-
-	//         // Step 1: Run build commands (bun run build && bunx wrangler build)
-	//         this.logger.info('Building project');
-	//         const buildResult = await this.executeCommand(instanceId, 'bun run build');
-	//         if (buildResult.exitCode !== 0) {
-	//             this.logger.warn('Build step failed or not available', buildResult.stdout, buildResult.stderr);
-	//             throw new Error(`Build failed: ${buildResult.stderr}`);
-	//         }
-
-	//         const wranglerBuildResult = await this.executeCommand(instanceId, 'bunx wrangler build');
-	//         if (wranglerBuildResult.exitCode !== 0) {
-	//             this.logger.warn('Wrangler build failed', wranglerBuildResult.stdout, wranglerBuildResult.stderr);
-	//             // Continue anyway - some projects might not need wrangler build
-	//         }
-
-	//         // Step 2: Parse wrangler config from KV
-	//         this.logger.info('Reading wrangler configuration from KV');
-	//         let wranglerConfigContent = await env.VibecoderStore.get(this.getWranglerKVKey(instanceId));
-
-	//         if (!wranglerConfigContent) {
-	//             // This should never happen unless KV itself has some issues
-	//             throw new Error(`Wrangler config not found in KV for ${instanceId}`);
-	//         } else {
-	//             this.logger.info('Using wrangler configuration from KV');
-	//         }
-
-	//         const config = parseWranglerConfig(wranglerConfigContent);
-
-	//         this.logger.info('Worker configuration', { scriptName: config.name });
-	//         this.logger.info('Worker compatibility', { compatibilityDate: config.compatibility_date });
-
-	//         // Step 3: Read worker script from dist
-	//         this.logger.info('Reading worker script');
-	//         const workerPath = `${instanceId}/dist/index.js`;
-	//         const workerFile = await sandbox.readFile(workerPath);
-	//         if (!workerFile.success) {
-	//             throw new Error(`Worker script not found at ${workerPath}. Please build the project first.`);
-	//         }
-
-	//         const workerContent = workerFile.content;
-	//         this.logger.info('Worker script loaded', { sizeKB: (workerContent.length / 1024).toFixed(2) });
-
-	//         // Step 3a: Check for additional worker modules (ESM imports)
-	//         // Process them the same way as assets but as strings for the Map
-	//         let additionalModules: Map<string, string> | undefined;
-	//         try {
-	//             const workerAssetsPath = `${instanceId}/dist/assets`;
-	//             const workerAssetsResult = await sandbox.exec(`test -d ${workerAssetsPath} && echo "exists" || echo "missing"`);
-	//             const hasWorkerAssets = workerAssetsResult.exitCode === 0 && workerAssetsResult.stdout.trim() === "exists";
-
-	//             if (hasWorkerAssets) {
-	//                 this.logger.info('Processing additional worker modules', { workerAssetsPath });
-
-	//                 // Find all JS files in the worker assets directory
-	//                 const findResult = await sandbox.exec(`find ${workerAssetsPath} -type f -name "*.js"`);
-	//                 if (findResult.exitCode === 0) {
-	//                     const modulePaths = findResult.stdout.trim().split('\n').filter(path => path);
-
-	//                     if (modulePaths.length > 0) {
-	//                         additionalModules = new Map<string, string>();
-
-	//                         for (const fullPath of modulePaths) {
-	//                             const relativePath = fullPath.replace(`${instanceId}/dist/`, '');
-
-	//                             try {
-	//                                 const buffer = await this.readFileAsBase64Buffer(fullPath);
-	//                                 const moduleContent = buffer.toString('utf8');
-	//                                 additionalModules.set(relativePath, moduleContent);
-
-	//                                 this.logger.info('Worker module loaded', {
-	//                                     path: relativePath,
-	//                                     sizeKB: (moduleContent.length / 1024).toFixed(2)
-	//                                 });
-	//                             } catch (error) {
-	//                                 this.logger.warn(`Failed to read worker module ${fullPath}:`, error);
-	//                             }
-	//                         }
-
-	//                         if (additionalModules.size > 0) {
-	//                             this.logger.info('Found additional worker modules', { count: additionalModules.size });
-	//                         }
-	//                     }
-	//                 }
-	//             }
-	//         } catch (error) {
-	//             this.logger.error('Failed to process additional worker modules:', error);
-	//         }
-
-	//         // Step 4: Check for static assets and process them
-	//         const assetsPath = `${instanceId}/dist/client`;
-	//         let assetsManifest: Record<string, { hash: string; size: number }> | undefined;
-	//         let fileContents: Map<string, Buffer> | undefined;
-
-	//         const assetDirResult = await sandbox.exec(`test -d ${assetsPath} && echo "exists" || echo "missing"`);
-	//         const hasAssets = assetDirResult.exitCode === 0 && assetDirResult.stdout.trim() === "exists";
-
-	//         if (hasAssets) {
-	//             this.logger.info('Processing static assets', { assetsPath });
-	//             const assetProcessResult = await this.processAssetsInSandbox(instanceId, assetsPath);
-	//             assetsManifest = assetProcessResult.assetsManifest;
-	//             fileContents = assetProcessResult.fileContents;
-	//         } else {
-	//             this.logger.info('No static assets found, deploying worker only');
-	//         }
-
-	//         // Step 5: Override config for dispatch deployment
-	//         const dispatchConfig = {
-	//             ...config,
-	//             name: config.name
-	//         };
-
-	//         // Step 6: Build deployment config using pure function
-	//         const deployConfig = buildDeploymentConfig(
-	//             dispatchConfig,
-	//             workerContent,
-	//             accountId,
-	//             apiToken,
-	//             assetsManifest,
-	//             config.compatibility_flags
-	//         );
-
-	//         // Step 7: Deploy using pure function
-	//         this.logger.info('Deploying to Cloudflare');
-	//         if ('DISPATCH_NAMESPACE' in env) {
-	//             this.logger.info('Using dispatch namespace', { dispatchNamespace: env.DISPATCH_NAMESPACE });
-	//             await deployToDispatch(
-	//                 {
-	//                     ...deployConfig,
-	//                     dispatchNamespace: env.DISPATCH_NAMESPACE as string
-	//                 },
-	//                 fileContents,
-	//                 additionalModules,
-	//                 config.migrations,
-	//                 config.assets
-	//             );
-	//         } else {
-	//             throw new Error('DISPATCH_NAMESPACE not found in environment variables, cannot deploy without dispatch namespace');
-	//         }
-
-	//         // Step 8: Determine deployment URL
-	//         const deployedUrl = `${this.getProtocolForHost()}://${projectName}.${getPreviewDomain(env)}`;
-	//         const deploymentId = projectName;
-
-	//         this.logger.info('Deployment successful', {
-	//             instanceId,
-	//             deployedUrl,
-	//             deploymentId,
-	//             mode: 'dispatch-namespace'
-	//         });
-
-	//         return {
-	//             success: true,
-	//             message: `Successfully deployed ${instanceId} using secure API deployment`,
-	//             deployedUrl,
-	//             deploymentId,
-	//             output: `Deployed`
-	//         };
-
-	//     } catch (error) {
-	//         this.logger.error('deployToCloudflareWorkers', error, { instanceId });
-	//         return {
-	//             success: false,
-	//             message: `Deployment failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-	//             error: error instanceof Error ? error.message : 'Unknown error'
-	//         };
-	//     }
-	// }
-
 	async deployToCloudflareWorkers(
 		instanceId: string,
 	): Promise<DeploymentResult> {
@@ -2802,6 +2577,27 @@ export class SandboxSdkClient extends BaseSandboxService {
 				config.compatibility_flags,
 			);
 
+			// Step 6a: Inject platform environment variables into deployment config
+			const platformVars = {
+				CF_AI_BASE_URL:
+					PlatformConfigService.getPlatformConfig(env).CF_AI_BASE_URL,
+				CF_AI_API_KEY:
+					PlatformConfigService.getPlatformConfig(env).CF_AI_API_KEY,
+			};
+
+			// Merge platform vars with any existing vars from wrangler.jsonc
+			deployConfig.vars = {
+				...(deployConfig.vars || {}),
+				...platformVars,
+			};
+
+			this.logger.info(
+				'Platform environment variables added to deployment config',
+				{
+					varCount: Object.keys(platformVars).length,
+				},
+			);
+
 			// Step 7: Deploy using pure function
 			this.logger.info('Deploying to Cloudflare');
 			if ('DISPATCH_NAMESPACE' in env) {
@@ -2819,16 +2615,7 @@ export class SandboxSdkClient extends BaseSandboxService {
 					config.assets,
 				);
 
-				// Step 7a: Inject platform environment variables after deployment
-				this.logger.info('Injecting platform environment variables');
-				await this.setWorkerEnvironmentVariables(projectName, {
-					CF_AI_BASE_URL:
-						PlatformConfigService.getPlatformConfig(env)
-							.CF_AI_BASE_URL,
-					CF_AI_API_KEY:
-						PlatformConfigService.getPlatformConfig(env)
-							.CF_AI_API_KEY,
-				});
+				// Remove Step 7a - no longer needed
 			} else {
 				throw new Error(
 					'DISPATCH_NAMESPACE not found in environment variables, cannot deploy without dispatch namespace',
