@@ -850,7 +850,7 @@ export default function Chat() {
 
 											<div className="flex items-center justify-center">
 												<div className="flex items-center gap-2">
-													<span className="text-sm font-mono text-text-50/70">
+													<span className="text-sm font-mono text-text-50/70 max-w-10 2xl:max-w-sm truncate">
 														{blueprint?.title ??
 															'Preview'}
 													</span>
