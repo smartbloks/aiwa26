@@ -24,37 +24,12 @@ export class TemplateParser {
         '{{D1_ID}}': 'D1'
     };
 
-    private static readonly ENV_VAR_INDICATORS = [
-        'YOUR_ACCOUNT_ID',
-        'YOUR_GATEWAY_ID',
-        'your-cloudflare-api-key',
-        'your-api-key',
-        'YOUR_',
-        'your-'
-    ];
-
     constructor(logger: StructuredLogger) {
         this.logger = logger;
     }
 
     detectPlaceholders(wranglerContent: string): PlaceholderInfo[] {
         const placeholders: PlaceholderInfo[] = [];
-
-        // Check for environment variable placeholders
-        let hasEnvVarPlaceholders = false;
-        for (const indicator of TemplateParser.ENV_VAR_INDICATORS) {
-            if (wranglerContent.includes(indicator)) {
-                hasEnvVarPlaceholders = true;
-                break;
-            }
-        }
-
-        if (hasEnvVarPlaceholders) {
-            this.logger.info(
-                '🔍 Detected environment variable placeholders in wrangler.jsonc. ' +
-                'These will be provided at runtime via platform configuration.'
-            );
-        }
 
         for (const [placeholder, resourceType] of Object.entries(TemplateParser.PLACEHOLDER_PATTERNS)) {
             if (wranglerContent.includes(placeholder)) {
@@ -75,7 +50,7 @@ export class TemplateParser {
             }
         }
 
-        this.logger.info(`Detected ${placeholders.length} placeholders in wrangler.jsonc (excluding ENV_VAR types handled at runtime)`);
+        this.logger.info(`Detected ${placeholders.length} placeholders in wrangler.jsonc`);
         return placeholders;
     }
 
