@@ -321,9 +321,13 @@ export class SandboxSdkClient extends BaseSandboxService {
 		downloadDir?: string,
 	): Promise<ArrayBuffer> {
 		// Fetch the zip file from R2
+		// const downloadUrl = downloadDir
+		// 	? `${downloadDir}/${templateName}-v2.zip`
+		// 	: `${templateName}-v2.zip`;
+		// In worker/services/sandbox/sandboxSdkClient.ts (around line 1086)
 		const downloadUrl = downloadDir
-			? `${downloadDir}/${templateName}.zip`
-			: `${templateName}.zip`;
+			? `${downloadDir}/${templateName}-v2.zip`
+			: `${templateName}-v2.zip`;
 		this.logger.info(`Fetching object: ${downloadUrl} from R2 bucket`);
 		const r2Object = await env.TEMPLATES_BUCKET.get(downloadUrl);
 
