@@ -40,7 +40,7 @@ export default function Chat() {
 	const [searchParams] = useSearchParams();
 	const userQuery = searchParams.get('query');
 	const agentMode = searchParams.get('agentMode') || 'deterministic';
-	
+
 	// Extract images from URL params if present
 	const userImages = useMemo(() => {
 		const imagesParam = searchParams.get('images');
@@ -204,7 +204,7 @@ export default function Chat() {
 
 	const [newMessage, setNewMessage] = useState('');
 	const [showTooltip, setShowTooltip] = useState(false);
-	
+
 	// Word count utilities
 	const MAX_WORDS = 4000;
 	const countWords = (text: string): number => {
@@ -669,7 +669,7 @@ export default function Chat() {
 							onChange={(e) => {
 								const newValue = e.target.value;
 								const newWordCount = countWords(newValue);
-								
+
 								// Only update if within word limit
 								if (newWordCount <= MAX_WORDS) {
 									setNewMessage(newValue);
@@ -757,7 +757,7 @@ export default function Chat() {
 
 										<div className="flex items-center justify-center">
 											<div className="flex items-center gap-2">
-												<span className="text-sm font-mono text-text-50/70">
+												<span className="text-sm font-mono text-text-50/70 max-w-10 2xl:max-w-16 truncate">
 													{blueprint?.title ??
 														'Preview'}
 												</span>
