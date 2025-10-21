@@ -150,8 +150,6 @@
         "CUSTOM_DOMAIN": "onlybloks.com",
         "MAX_SANDBOX_INSTANCES": "10",
         "SANDBOX_INSTANCE_TYPE": "standard-4",
-        "CF_AI_BASE_URL": "https://gateway.ai.cloudflare.com/v1/49a9bd6b6b2cb448b0fd3a751f276556/vibesdk-gateway/openai",
-        "CF_AI_API_KEY": "1aOwvfJ50XHZ12qFtc5HVqlWoyjRzuY3er6M76oJ",
 		"GOOGLE_CLIENT_ID": "694595631875-poqogqmsm9ek9sag98si40ec5ejh8o6r.apps.googleusercontent.com",
 		"GITHUB_EXPORTER_CLIENT_ID": "Ov23liOP1IIvEDIAlTHE",
 		"GITHUB_CLIENT_ID": "Ov23lijPzQXkoh7MgZwm"
