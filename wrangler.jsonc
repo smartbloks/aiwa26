@@ -152,7 +152,7 @@
         "SANDBOX_INSTANCE_TYPE": "standard-4",
 		"GOOGLE_CLIENT_ID": "694595631875-poqogqmsm9ek9sag98si40ec5ejh8o6r.apps.googleusercontent.com",
 		"GITHUB_EXPORTER_CLIENT_ID": "Ov23liOP1IIvEDIAlTHE",
-		"GITHUB_CLIENT_ID": "Ov23lijPzQXkoh7MgZwm",
+		"GITHUB_CLIENT_ID": "Ov23lijPzQXkoh7MgZwm"
     },
 	"workers_dev": false,
 	"preview_urls": false
