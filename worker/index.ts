@@ -20,8 +20,48 @@ export const DORateLimitStore = BaseDORateLimitStore;
 const logger = createLogger('App');
 
 /**
+ * Adds CORS headers to a response for cross-origin requests from the main domain.
+ * @param response The original response
+ * @param origin The request origin
+ * @param customDomain The custom domain (e.g., 'onlybloks.com')
+ * @returns Response with CORS headers
+ */
+function addCorsHeaders(response: Response, origin: string, customDomain: string): Response {
+	const allowedOrigins = [
+		`https://${customDomain}`,
+		`http://localhost`,
+		`http://localhost:3000`,
+		`http://localhost:5173`,
+	];
+
+	// Check if the origin is allowed (exact match or subdomain)
+	const isAllowed = allowedOrigins.some(allowed => origin === allowed || origin.startsWith(allowed));
+
+	const headers = new Headers(response.headers);
+
+	if (isAllowed) {
+		headers.set('Access-Control-Allow-Origin', origin);
+	} else {
+		// Default to main domain if origin not recognized
+		headers.set('Access-Control-Allow-Origin', `https://${customDomain}`);
+	}
+
+	headers.set('Access-Control-Allow-Methods', 'GET, HEAD, POST, PUT, DELETE, OPTIONS');
+	headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+	headers.set('Access-Control-Max-Age', '86400');
+	headers.set('Access-Control-Allow-Credentials', 'true');
+
+	return new Response(response.body, {
+		status: response.status,
+		statusText: response.statusText,
+		headers,
+	});
+}
+
+/**
  * Handles requests for user-deployed applications on subdomains.
- * It first attempts to proxy to a live development sandbox. If that fails,
+ * It first attempts to proxy to a live development sandbox.
+ * If that fails,
  * it dispatches the request to a permanently deployed worker via namespaces.
  * This function will NOT fall back to the main worker.
  *
@@ -32,29 +72,55 @@ const logger = createLogger('App');
 async function handleUserAppRequest(request: Request, env: Env): Promise<Response> {
 	const url = new URL(request.url);
 	const { hostname } = url;
+	const origin = request.headers.get('Origin') || '';
 	logger.info(`Handling user app request for: ${hostname}`);
+
+	// Handle CORS preflight requests
+	if (request.method === 'OPTIONS') {
+		const allowedOrigins = [
+			`https://${env.CUSTOM_DOMAIN}`,
+			'http://localhost',
+			'http://localhost:3000',
+			'http://localhost:5173',
+		];
+		const isAllowed = allowedOrigins.some(allowed => origin === allowed || origin.startsWith(allowed));
+
+		return new Response(null, {
+			status: 204,
+			headers: {
+				'Access-Control-Allow-Origin': isAllowed ? origin : `https://${env.CUSTOM_DOMAIN}`,
+				'Access-Control-Allow-Methods': 'GET, HEAD, POST, PUT, DELETE, OPTIONS',
+				'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+				'Access-Control-Max-Age': '86400',
+				'Access-Control-Allow-Credentials': 'true',
+			},
+		});
+	}
 
 	// 1. Attempt to proxy to a live development sandbox.
 	// proxyToSandbox doesn't consume the request body on a miss, so no clone is needed here.
 	const sandboxResponse = await proxyToSandbox(request, env);
 	if (sandboxResponse) {
 		logger.info(`Serving response from sandbox for: ${hostname}`);
-		
+
 		// Add headers to identify this as a sandbox response
 		const headers = new Headers(sandboxResponse.headers);
-		
+
         if (sandboxResponse.status === 500) {
             headers.set('X-Preview-Type', 'sandbox-error');
         } else {
             headers.set('X-Preview-Type', 'sandbox');
         }
 		headers.set('Access-Control-Expose-Headers', 'X-Preview-Type');
-		
-		return new Response(sandboxResponse.body, {
+
+		const responseWithHeaders = new Response(sandboxResponse.body, {
 			status: sandboxResponse.status,
 			statusText: sandboxResponse.statusText,
 			headers,
 		});
+
+		// Add CORS headers
+		return addCorsHeaders(responseWithHeaders, origin, env.CUSTOM_DOMAIN);
 	}
 
 	// 2. If sandbox misses, attempt to dispatch to a deployed worker.
@@ -71,18 +137,21 @@ async function handleUserAppRequest(request: Request, env: Env): Promise<Respons
 	try {
 		const worker = dispatcher.get(appName);
 		const dispatcherResponse = await worker.fetch(request);
-		
+
 		// Add headers to identify this as a dispatcher response
 		const headers = new Headers(dispatcherResponse.headers);
-		
+
 		headers.set('X-Preview-Type', 'dispatcher');
 		headers.set('Access-Control-Expose-Headers', 'X-Preview-Type');
-		
-		return new Response(dispatcherResponse.body, {
+
+		const responseWithHeaders = new Response(dispatcherResponse.body, {
 			status: dispatcherResponse.status,
 			statusText: dispatcherResponse.statusText,
 			headers,
 		});
+
+		// Add CORS headers
+		return addCorsHeaders(responseWithHeaders, origin, env.CUSTOM_DOMAIN);
 	} catch (error: any) {
 		// This block catches errors if the binding doesn't exist or if worker.fetch() fails.
 		logger.warn(`Error dispatching to worker '${appName}': ${error.message}`);
