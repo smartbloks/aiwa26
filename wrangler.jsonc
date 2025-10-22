@@ -143,7 +143,7 @@
     ],
 	"vars": {
 		"AUTH_TRUST_HOST": "true",
-        "ALLOWED_EMAIL": "leonandrew94@gmail.com"
+        "ALLOWED_EMAIL": "leonandrew94@gmail.com",
         "TEMPLATES_REPOSITORY": "https://github.com/cloudflare/vibesdk-templates",
         "DISPATCH_NAMESPACE": "vibesdk-default-namespace",
         "ENABLE_READ_REPLICAS": "true",
